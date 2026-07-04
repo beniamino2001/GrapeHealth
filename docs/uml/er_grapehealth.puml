@@ -1,0 +1,50 @@
+@startuml er_grapehealth
+!define TABLE(name) class name << (T,#FFAAAA) >>
+
+TABLE(nodo_sensore) {
+  id : BIGSERIAL <<PK>>
+  codice : VARCHAR
+  parcella : VARCHAR
+  tipo_nodo : VARCHAR
+  latitudine : DOUBLE
+  longitudine : DOUBLE
+  attivo : BOOLEAN
+  data_installazione : DATE
+}
+
+TABLE(misurazione) {
+  id : BIGSERIAL <<PK>>
+  nodo_id : BIGINT <<FK>>
+  parametro : VARCHAR
+  valore : DOUBLE
+  unita_misura : VARCHAR
+  rilevato_il : TIMESTAMPTZ
+  ricevuto_il : TIMESTAMPTZ
+}
+
+TABLE(allerta) {
+  id : BIGSERIAL <<PK>>
+  tipo : VARCHAR
+  livello_rischio : VARCHAR
+  nodo_id : BIGINT <<FK>>
+  descrizione : TEXT
+  regola_scatenante : VARCHAR
+  generata_il : TIMESTAMPTZ
+  risolta_il : TIMESTAMPTZ
+  stato : VARCHAR
+}
+
+TABLE(trattamento) {
+  id : BIGSERIAL <<PK>>
+  allerta_id : BIGINT <<FK>>
+  tipo_azione : VARCHAR
+  eseguito_il : TIMESTAMPTZ
+  esito : VARCHAR
+  note : TEXT
+}
+
+nodo_sensore "1" -- "0..*" misurazione : genera
+nodo_sensore "1" -- "0..*" allerta : origina
+allerta "1" -- "0..*" trattamento : innesca
+
+@enduml

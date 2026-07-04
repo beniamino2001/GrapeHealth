@@ -1,0 +1,44 @@
+services:
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: grapehealth-rabbitmq
+    hostname: grapehealth-rabbitmq
+    ports:
+      - "5672:5672"     # AMQP (consumer interni: decision engine, persistenza, attuatori)
+      - "1883:1883"     # MQTT (pubblicazione dai sensori simulati)
+      - "15672:15672"   # UI Interface per il management del broker
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-grapehealth}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-grapehealth}
+    volumes:
+      - ./infra/rabbitmq/enabled_plugins:/etc/rabbitmq/enabled_plugins:ro
+      - ./infra/rabbitmq/rabbitmq.conf:/etc/rabbitmq/conf.d/10-grapehealth.conf:ro
+      - rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "check_running"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  postgres:
+    image: postgres:16
+    container_name: grapehealth-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-grapehealth}
+      POSTGRES_USER: ${POSTGRES_USER:-grapehealth}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-grapehealth}
+    volumes:
+      - ./infra/postgres/init:/docker-entrypoint-initdb.d:ro
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-grapehealth}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  rabbitmq-data:
+  postgres-data:

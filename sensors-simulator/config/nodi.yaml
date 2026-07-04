@@ -1,0 +1,62 @@
+# Configurazione del simulatore GrapeHealth.
+# Modificare qui scenario e velocità del tempo senza toccare il codice.
+
+mqtt:
+  topic_prefix: "grapehealth"
+
+simulazione:
+  # 1 = tempo reale (un secondo simulato = un secondo reale)
+  # >1 = tempo compresso, es. 288 fa scorrere un giorno simulato in 5 minuti reali (86400/288=300s)
+  # Sovrascrivibile da riga di comando con --time-scale
+  time_scale: 1
+
+  # intervallo fra due letture consecutive, espresso in SECONDI SIMULATI
+  intervallo_pubblicazione_secondi: 30
+
+  # normale | stress_idrico | ondata_di_calore
+  # Sovrascrivibile da riga di comando con --scenario
+  scenario: "normale"
+
+# Tre parcelle dello stesso vigneto, vicine tra loro ma con micro-condizioni leggermente diverse (varietà, esposizione).
+parcelle:
+  - nome: parcellaA
+    varieta: "Sangiovese"
+    colore_bacca: "nero"          # nero | bianco -- influenza l'offset di temp_bacca (Gambetta et al., 2021)
+    stadio_fenologico_germogli_cm: 12   # valore statico, usato dalla regola dei "tre dieci"
+    latitudine: 41.1231
+    longitudine: 16.8674
+    nodi:
+      - codice: meteo-A1
+        tipo: meteo      # temp_aria, umidita_aria, pioggia, bagnatura_fogliare
+      - codice: idrico-A1
+        tipo: idrico      # psi_stem
+      - codice: bacca-A1
+        tipo: bacca       # temp_bacca
+
+  - nome: parcellaB
+    varieta: "Montepulciano"
+    colore_bacca: "nero"
+    stadio_fenologico_germogli_cm: 14
+    latitudine: 41.1258
+    longitudine: 16.8711
+    nodi:
+      - codice: meteo-B1
+        tipo: meteo
+      - codice: idrico-B1
+        tipo: idrico
+      - codice: bacca-B1
+        tipo: bacca
+
+  - nome: parcellaC
+    varieta: "Trebbiano"
+    colore_bacca: "bianco"
+    stadio_fenologico_germogli_cm: 10
+    latitudine: 41.1204
+    longitudine: 16.8639
+    nodi:
+      - codice: meteo-C1
+        tipo: meteo
+      - codice: idrico-C1
+        tipo: idrico
+      - codice: bacca-C1
+        tipo: bacca
