@@ -2,6 +2,8 @@
 Orchestratore del simulatore GrapeHealth.
 
 Uso:
+    cd sensors-simulator
+    source .venv/bin/activate (se non è stato già configurato il venv, "python3 -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt")
     python -m simulator.main
     python -m simulator.main --scenario stress_idrico --time-scale 288
 

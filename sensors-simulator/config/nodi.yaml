@@ -1,5 +1,5 @@
 # Configurazione del simulatore GrapeHealth.
-# Modificare qui scenario e velocità del tempo senza toccare il codice.
+# Basta modificare qui scenario e velocità del tempo senza toccare il codice.
 
 mqtt:
   topic_prefix: "grapehealth"

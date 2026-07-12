@@ -6,6 +6,8 @@ YAML, esegui di nuovo questo script e il database si allinea (upsert su
 `codice`, che deve quindi essere UNIQUE nello schema).
 
 Uso:
+    cd sensors-simulator
+    source .venv/bin/activate (se non è stato già configurato il venv, "python3 -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt")
     python scripts/init_nodi_db.py
 """
 
