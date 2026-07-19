@@ -1,0 +1,22 @@
+spring:
+  application:
+    name: attuatori
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_AMQP_PORT:5672}
+    username: ${RABBITMQ_USER}
+    password: ${RABBITMQ_PASS}
+    virtual-host: /
+
+logging:
+  file:
+    name: ${user.home}/Downloads/grapehealth-attuatori.log
+  structured:
+    format:
+      file: ecs
+  level:
+    org.springframework.amqp: INFO
+    com.rabbitmq.client: INFO
+
+server:
+  port: 8082

@@ -1,4 +1,7 @@
 package it.pegasopw.grapehealth.persistence.repository;
 
-public class NodoSensoreRepository {
+import it.pegasopw.grapehealth.persistence.model.entity.NodoSensoreEntity;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+public interface NodoSensoreRepository extends JpaRepository<NodoSensoreEntity, Long> {
 }
