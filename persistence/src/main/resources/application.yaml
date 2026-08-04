@@ -13,6 +13,7 @@ spring:
         jdbc:
           batch_size: 50
         order_inserts: true
+    open-in-view: false
   rabbitmq:
     host: ${RABBITMQ_HOST:localhost}
     port: ${RABBITMQ_AMQP_PORT:5672}

@@ -1,0 +1,33 @@
+package it.pegasopw.grapehealth.api.repository.spec;
+
+import it.pegasopw.grapehealth.api.model.entity.AllertaEntity;
+import org.springframework.data.jpa.domain.Specification;
+
+import java.util.List;
+
+public final class AllertaSpecifications {
+
+    private AllertaSpecifications() {
+    }
+
+    public static Specification<AllertaEntity> stato(String stato) {
+        if (stato == null || stato.isBlank()) {
+            return (root, query, cb) -> cb.conjunction();
+        }
+        return (root, query, cb) -> cb.equal(root.get("stato"), stato);
+    }
+
+    public static Specification<AllertaEntity> tipo(String tipo) {
+        if (tipo == null || tipo.isBlank()) {
+            return (root, query, cb) -> cb.conjunction();
+        }
+        return (root, query, cb) -> cb.equal(root.get("tipo"), tipo);
+    }
+
+    public static Specification<AllertaEntity> nodoIdIn(List<Long> nodoIds) {
+        if (nodoIds == null || nodoIds.isEmpty()) {
+            return (root, query, cb) -> cb.conjunction();
+        }
+        return (root, query, cb) -> root.get("nodoId").in(nodoIds);
+    }
+}

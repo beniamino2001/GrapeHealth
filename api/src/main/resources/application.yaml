@@ -1,0 +1,26 @@
+spring:
+  application:
+    name: api
+  datasource:
+    url: jdbc:postgresql://${PG_HOST:localhost}:${PG_PORT:5432}/${POSTGRES_DB}
+    username: ${POSTGRES_USER}
+    password: ${POSTGRES_PASSWORD}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    operationsSorter: alpha
+    tagsSorter: alpha
+  api-docs:
+    path: /v3/api-docs
+
+logging:
+  file:
+    name: ${user.home}/Downloads/grapehealth-api.log
+
+server:
+  port: 8084

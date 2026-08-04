@@ -27,7 +27,7 @@ class AllertaListenerTest {
     @BeforeEach
     void setUp() {
         logger = (Logger) LoggerFactory.getLogger(AllertaListener.class);
-        logger.setLevel(Level.ALL); // indipendente da eventuali soglie impostate in application.yaml
+        logger.setLevel(Level.TRACE); // indipendente da eventuali soglie impostate in application.yaml
         appender = new ListAppender<>();
         appender.start();
         logger.addAppender(appender);
