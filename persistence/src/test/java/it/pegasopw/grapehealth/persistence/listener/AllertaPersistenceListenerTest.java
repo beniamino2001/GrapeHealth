@@ -15,6 +15,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @SpringBootTest
@@ -52,6 +53,8 @@ class AllertaPersistenceListenerTest {
         assertNotNull(allertaSalvata.getId());
         assertEquals("stress_idrico", allertaSalvata.getTipo());
         assertEquals("severo", allertaSalvata.getLivelloRischio());
+        assertEquals("attiva", allertaSalvata.getStato());
+        assertNull(allertaSalvata.getRisoltaIl());
 
         List<TrattamentoEntity> trattamenti = trattamentoRepository.findAll().stream()
                 .filter(t -> allertaSalvata.getId().equals(t.getAllertaId()))

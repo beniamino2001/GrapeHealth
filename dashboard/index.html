@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="it">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GrapeHealth — Dashboard</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.5.0/chart.umd.min.js"></script>
+</head>
+
+<body>
+  <header class="app-header">
+    <h1>
+      <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.4"
+        stroke-linecap="round" stroke-linejoin="round">
+        <line x1="12" y1="2" x2="12" y2="5.2" />
+        <path
+          d="M12 3.6c2.1-0.9 4.3 0.2 4.7 2.3-1.9 0.8-3.8-0.1-4.7-1.5-0.9 1.4-2.8 2.3-4.7 1.5 0.4-2.1 2.6-3.2 4.7-2.3z" />
+        <circle cx="12" cy="9" r="1.15" />
+        <circle cx="10.1" cy="11.5" r="1.15" />
+        <circle cx="13.9" cy="11.5" r="1.15" />
+        <circle cx="8.4" cy="14" r="1.15" />
+        <circle cx="12" cy="14" r="1.15" />
+        <circle cx="15.6" cy="14" r="1.15" />
+        <circle cx="10.1" cy="16.5" r="1.15" />
+        <circle cx="13.9" cy="16.5" r="1.15" />
+      </svg>
+      GrapeHealth
+    </h1>
+    <p class="subtitle">Monitoraggio viticoltura di precisione</p>
+  </header>
+
+  <main class="layout">
+
+    <section class="panel panel-filtri">
+      <h2>Andamento misurazioni</h2>
+      <form id="filtroForm" class="filtro-form">
+        <label>
+          Parcella
+          <select id="filtroParcella">
+            <option value="">Tutte</option>
+          </select>
+        </label>
+        <label>
+          Parametro
+          <select id="filtroParametro"></select>
+        </label>
+        <label>
+          Finestra
+          <select id="filtroFinestra">
+            <option value="breve" selected>Ultime letture</option>
+            <option value="giorno">Ultimo giorno</option>
+            <option value="tre_giorni">Ultimi 3 giorni</option>
+            <option value="settimana">Ultima settimana</option>
+          </select>
+        </label>
+        <button type="submit">Aggiorna grafico</button>
+      </form>
+      <p id="measurementError" class="error-text"></p>
+      <div class="chart-wrapper">
+        <canvas id="chartMisurazioni"></canvas>
+      </div>
+    </section>
+
+    <section class="panel panel-allerte">
+      <div class="panel-header">
+        <h2>Allerte <span id="alertCount" class="badge-count">0</span></h2>
+        <span class="last-update">Ultimo aggiornamento: <span id="lastUpdate">—</span></span>
+      </div>
+      <div class="tab-bar">
+        <button type="button" class="tab-btn active" data-stato="attiva">Attive</button>
+        <button type="button" class="tab-btn" data-stato="risolta">Risolte</button>
+      </div>
+      <p id="alertError" class="error-text"></p>
+      <div class="allerte-content">
+        <div>
+          <div id="alertList" class="alert-list"></div>
+          <div id="paginazioneAllerte" class="paginazione"></div>
+        </div>
+        <div class="chart-wrapper">
+          <p class="chart-scope-label">Ripartizione delle allerte attive</p>
+          <canvas id="chartAllerteTipo"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel panel-raccomandazione">
+      <h2>Raccomandazione</h2>
+      <p class="hint">Seleziona un'allerta dalla lista per vederne il dettaglio.</p>
+      <div id="recommendationPanel"></div>
+    </section>
+
+    <section class="panel panel-statistiche">
+      <h2>Statistiche generali</h2>
+      <div class="kpi-grid">
+        <div class="kpi-card">
+          <span class="kpi-valore" id="kpiAllerteAttive">—</span>
+          <span class="kpi-etichetta">Allerte attive</span>
+        </div>
+        <div class="kpi-card">
+          <span class="kpi-valore" id="kpiMisurazioniCaricate">—</span>
+          <span class="kpi-etichetta">Misurazioni caricate</span>
+        </div>
+        <div class="kpi-card">
+          <span class="kpi-valore" id="kpiNodiAttivi">—</span>
+          <span class="kpi-etichetta">Nodi che riportano il parametro</span>
+        </div>
+        <div class="kpi-card">
+          <span class="kpi-valore" id="kpiTassoEsecuzione">—</span>
+          <span class="kpi-etichetta">Raccomandazioni con azione simulata eseguita</span>
+        </div>
+        <div class="kpi-card">
+          <span class="kpi-valore" id="kpiTempoRisposta">—</span>
+          <span class="kpi-etichetta">Tempo medio esecuzione → risoluzione</span>
+        </div>
+      </div>
+      <div class="stat-charts">
+        <div>
+          <h3>Allerte attive per parcella</h3>
+          <div class="chart-wrapper chart-wrapper-small">
+            <canvas id="chartAllerteParcella"></canvas>
+          </div>
+        </div>
+        <div>
+          <h3>Allerte attive per livello di rischio</h3>
+          <div class="chart-wrapper chart-wrapper-small">
+            <canvas id="chartAllerteLivello"></canvas>
+          </div>
+        </div>
+        <div>
+          <h3>Azioni raccomandate (allerte attive)</h3>
+          <div class="chart-wrapper chart-wrapper-small">
+            <canvas id="chartAzioni"></canvas>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="app-footer">
+    <p>GrapeHealth — prototipo di middleware IoT per viticoltura di precisione</p>
+  </footer>
+
+  <script src="js/api.js"></script>
+  <script src="js/charts.js"></script>
+  <script src="js/alerts.js"></script>
+  <script src="js/stats.js"></script>
+  <script src="js/main.js"></script>
+</body>
+
+</html>

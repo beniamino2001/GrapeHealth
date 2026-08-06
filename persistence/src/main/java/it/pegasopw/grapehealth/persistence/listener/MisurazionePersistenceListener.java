@@ -4,6 +4,7 @@ import it.pegasopw.grapehealth.persistence.cache.CacheNodi;
 import it.pegasopw.grapehealth.persistence.model.dto.MisurazioneMessage;
 import it.pegasopw.grapehealth.persistence.model.entity.MisurazioneEntity;
 import it.pegasopw.grapehealth.persistence.repository.MisurazioneRepository;
+import it.pegasopw.grapehealth.persistence.simulazione.StimaScalaSimulazione;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.amqp.core.Message;
@@ -26,14 +27,17 @@ public class MisurazionePersistenceListener implements MessageListener {
     private final JsonMapper jsonMapper;
     private final MisurazioneRepository misurazioneRepository;
     private final CacheNodi cacheNodi;
+    private final StimaScalaSimulazione stimaScalaSimulazione;
     private final List<MisurazioneEntity> buffer = new ArrayList<>(DIMENSIONE_BATCH);
 
     public MisurazionePersistenceListener(JsonMapper jsonMapper,
                                           MisurazioneRepository misurazioneRepository,
-                                          CacheNodi cacheNodi) {
+                                          CacheNodi cacheNodi,
+                                          StimaScalaSimulazione stimaScalaSimulazione) {
         this.jsonMapper = jsonMapper;
         this.misurazioneRepository = misurazioneRepository;
         this.cacheNodi = cacheNodi;
+        this.stimaScalaSimulazione = stimaScalaSimulazione;
     }
 
     @Override
@@ -49,6 +53,12 @@ public class MisurazionePersistenceListener implements MessageListener {
 
     private void handleMisurazione(Message rawMessage) {
         MisurazioneMessage misurazione = jsonMapper.readValue(rawMessage.getBody(), MisurazioneMessage.class);
+
+        // Aggiorna la stima della scala di simulazione per OGNI misurazione
+        // ricevuta, indipendentemente dal nodo: non richiede che il nodo sia
+        // noto alla cache, e piu' misurazioni si osservano piu' la stima
+        // (media mobile) si stabilizza.
+        stimaScalaSimulazione.osserva(misurazione.timestampRilevazione());
 
         Long nodoId = cacheNodi.idPerCodice(misurazione.nodo());
         if (nodoId == null) {

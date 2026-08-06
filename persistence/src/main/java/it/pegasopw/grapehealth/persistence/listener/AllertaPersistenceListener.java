@@ -8,6 +8,7 @@ import it.pegasopw.grapehealth.persistence.model.entity.TrattamentoEntity;
 import it.pegasopw.grapehealth.persistence.model.evento.AllertaEvent;
 import it.pegasopw.grapehealth.persistence.repository.AllertaRepository;
 import it.pegasopw.grapehealth.persistence.repository.TrattamentoRepository;
+import it.pegasopw.grapehealth.persistence.risoluzione.SchedulerRisoluzioneAllerte;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
@@ -23,15 +24,18 @@ public class AllertaPersistenceListener {
     private final TrattamentoRepository trattamentoRepository;
     private final CacheNodi cacheNodi;
     private final MappatoreAzione mappatoreAzione;
+    private final SchedulerRisoluzioneAllerte schedulerRisoluzioneAllerte;
 
     public AllertaPersistenceListener(AllertaRepository allertaRepository,
                                       TrattamentoRepository trattamentoRepository,
                                       CacheNodi cacheNodi,
-                                      MappatoreAzione mappatoreAzione) {
+                                      MappatoreAzione mappatoreAzione,
+                                      SchedulerRisoluzioneAllerte schedulerRisoluzioneAllerte) {
         this.allertaRepository = allertaRepository;
         this.trattamentoRepository = trattamentoRepository;
         this.cacheNodi = cacheNodi;
         this.mappatoreAzione = mappatoreAzione;
+        this.schedulerRisoluzioneAllerte = schedulerRisoluzioneAllerte;
     }
 
     @Transactional
@@ -62,5 +66,9 @@ public class AllertaPersistenceListener {
 
         trattamentoRepository.save(trattamento);
         log.info("Trattamento persistito: allertaId={}, tipoAzione={}", allerta.getId(), trattamento.getTipoAzione());
+
+        // La risoluzione dell'allerta e' pianificata con un ritardo REALE: 
+        // l'allerta resta "attiva" e visibile a chi consulta l'API in tempo reale per la durata del ritardo.
+        schedulerRisoluzioneAllerte.pianifica(allerta.getId(), evento.tipo(), evento.livelloRischio());
     }
 }

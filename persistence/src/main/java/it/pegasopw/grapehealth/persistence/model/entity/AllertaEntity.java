@@ -35,6 +35,12 @@ public class AllertaEntity {
     @Column(name = "generata_il", nullable = false)
     private Instant generataIl;
 
+    @Column(name = "risolta_il")
+    private Instant risoltaIl;
+
+    @Column
+    private String stato = "attiva";
+
     public AllertaEntity() {
     }
 
@@ -46,6 +52,17 @@ public class AllertaEntity {
         this.descrizione = descrizione;
         this.regolaScatenante = regolaScatenante;
         this.generataIl = generataIl;
+    }
+
+    // L'allerta viene marcata risolta con un ritardo REALE (non simulato)
+    // rispetto alla scrittura del trattamento, pianificato e applicato da
+    // SchedulerRisoluzioneAllerte: la scrittura originaria, che risolveva
+    // l'allerta nello stesso istante/nella stessa transazione del trattamento,
+    // rendeva la finestra "attiva" invisibile a un endpoint di monitoraggio
+    // in tempo reale come AllerteService/RaccomandazioniService del modulo api.
+    public void risolvi(Instant risoltaIl) {
+        this.stato = "risolta";
+        this.risoltaIl = risoltaIl;
     }
 
     public Long getId() {
@@ -74,5 +91,13 @@ public class AllertaEntity {
 
     public Instant getGenerataIl() {
         return generataIl;
+    }
+
+    public Instant getRisoltaIl() {
+        return risoltaIl;
+    }
+
+    public String getStato() {
+        return stato;
     }
 }
