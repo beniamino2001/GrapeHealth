@@ -24,7 +24,7 @@ import yaml
 from dotenv import load_dotenv
 
 from simulator.clock import SimulatedClock
-from simulator.generator import StatoParcella, genera_letture_nodo
+from simulator.generator import StatoParcella, genera_letture_nodo, genera_temp_aria
 from simulator.mqtt_client import GrapeHealthMqttClient
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
@@ -76,6 +76,7 @@ def main():
             for parcella in config["parcelle"]:
                 stato = stati[parcella["nome"]]
                 stato.aggiorna_se_nuovo_giorno(now)
+                temp_aria_riferimento = genera_temp_aria(now, stato.scenario)
 
                 for nodo in parcella["nodi"]:
                     letture = genera_letture_nodo(
@@ -83,6 +84,7 @@ def main():
                         dt=now,
                         stato=stato,
                         colore_bacca=parcella["colore_bacca"],
+                        temp_aria_riferimento=temp_aria_riferimento,
                     )
                     for parametro, (valore, unita) in letture.items():
                         payload = {

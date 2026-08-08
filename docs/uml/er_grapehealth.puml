@@ -1,10 +1,31 @@
 @startuml er_grapehealth
 !define TABLE(name) class name << (T,#FFAAAA) >>
 
+TABLE(parcella) {
+  id : BIGSERIAL <<PK>>
+  nome : VARCHAR <<UNIQUE>>
+  varieta : VARCHAR
+  colore_bacca : VARCHAR
+  lunghezza_germoglio_cm : DOUBLE
+  germoglio_aggiornato_il : DATE
+  latitudine : DOUBLE
+  longitudine : DOUBLE
+  note : TEXT
+}
+
+TABLE(sessione_simulazione) {
+  id : BIGSERIAL <<PK>>
+  scenario : VARCHAR
+  time_scale : INTEGER
+  avviata_il : TIMESTAMPTZ
+  terminata_il : TIMESTAMPTZ
+  note : TEXT
+}
+
 TABLE(nodo_sensore) {
   id : BIGSERIAL <<PK>>
-  codice : VARCHAR
-  parcella : VARCHAR
+  codice : VARCHAR <<UNIQUE>>
+  parcella_id : BIGINT <<FK>>
   tipo_nodo : VARCHAR
   latitudine : DOUBLE
   longitudine : DOUBLE
@@ -12,9 +33,42 @@ TABLE(nodo_sensore) {
   data_installazione : DATE
 }
 
+TABLE(regola) {
+  codice : VARCHAR <<PK>>
+  tipo_allerta : VARCHAR
+  descrizione : TEXT
+  fonte_bibliografica : VARCHAR
+}
+
+TABLE(regola_soglia) {
+  id : BIGSERIAL <<PK>>
+  regola_codice : VARCHAR <<FK>>
+  parametro : VARCHAR
+  livello_rischio : VARCHAR
+  operatore : VARCHAR
+  valore_soglia : DOUBLE
+  unita_misura : VARCHAR
+  durata_minima_minuti : INTEGER
+  note : TEXT
+}
+
+TABLE(azione_mitigazione) {
+  codice : VARCHAR <<PK>>
+  descrizione : TEXT
+  fonte_bibliografica : VARCHAR
+}
+
+TABLE(regola_azione) {
+  id : BIGSERIAL <<PK>>
+  regola_codice : VARCHAR <<FK>>
+  azione_codice : VARCHAR <<FK>>
+  note : TEXT
+}
+
 TABLE(misurazione) {
   id : BIGSERIAL <<PK>>
   nodo_id : BIGINT <<FK>>
+  sessione_id : BIGINT <<FK>>
   parametro : VARCHAR
   valore : DOUBLE
   unita_misura : VARCHAR
@@ -27,9 +81,12 @@ TABLE(allerta) {
   tipo : VARCHAR
   livello_rischio : VARCHAR
   nodo_id : BIGINT <<FK>>
+  parcella_id : BIGINT <<FK>>
+  sessione_id : BIGINT <<FK>>
   descrizione : TEXT
-  regola_scatenante : VARCHAR
+  regola_codice : VARCHAR <<FK>>
   generata_il : TIMESTAMPTZ
+  risoluzione_pianificata_il : TIMESTAMPTZ
   risolta_il : TIMESTAMPTZ
   stato : VARCHAR
 }
@@ -37,14 +94,25 @@ TABLE(allerta) {
 TABLE(trattamento) {
   id : BIGSERIAL <<PK>>
   allerta_id : BIGINT <<FK>>
-  tipo_azione : VARCHAR
+  sessione_id : BIGINT <<FK>>
+  tipo_azione : VARCHAR <<FK>>
   eseguito_il : TIMESTAMPTZ
   esito : VARCHAR
   note : TEXT
 }
 
+parcella "1" -- "0..*" nodo_sensore : localizza
+parcella "1" -- "0..*" allerta : origina (regole a livello di parcella)
+regola "1" -- "0..*" regola_soglia : definisce
+regola "1" -- "0..*" allerta : scatena
 nodo_sensore "1" -- "0..*" misurazione : genera
-nodo_sensore "1" -- "0..*" allerta : origina
+nodo_sensore "1" -- "0..*" allerta : origina (regole a livello di nodo)
 allerta "1" -- "0..*" trattamento : innesca
+regola "1" -- "0..*" regola_azione : ammette
+azione_mitigazione "1" -- "0..*" regola_azione : è ammessa da
+azione_mitigazione "1" -- "0..*" trattamento : sceglie
+sessione_simulazione "1" -- "0..*" misurazione : raccoglie
+sessione_simulazione "1" -- "0..*" allerta : raccoglie
+sessione_simulazione "1" -- "0..*" trattamento : raccoglie
 
 @enduml

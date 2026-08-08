@@ -11,14 +11,14 @@ diurno completo o più giorni consecutivi senza pioggia.
 """
 
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 
 class SimulatedClock:
     def __init__(self, time_scale: float = 1.0, start: datetime | None = None):
         self.time_scale = time_scale
         self._start_real = time.monotonic()
-        self._start_sim = start or datetime.utcnow()
+        self._start_sim = start or datetime.now(timezone.utc).replace(tzinfo=None)
 
     def now(self) -> datetime:
         elapsed_real = time.monotonic() - self._start_real

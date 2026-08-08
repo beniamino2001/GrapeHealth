@@ -1,0 +1,23 @@
+{
+  "rabbit_version": "4.3.0",
+  "users": [
+    {
+      "name": "grapehealth",
+      "password_hash": "GENERATO_DA_setup-credentials.sh_NON_MODIFICARE_A_MANO",
+      "hashing_algorithm": "rabbit_password_hashing_sha256",
+      "tags": ["administrator"]
+    }
+  ],
+  "vhosts": [
+    { "name": "/" }
+  ],
+  "permissions": [
+    {
+      "user": "grapehealth",
+      "vhost": "/",
+      "configure": ".*",
+      "write": ".*",
+      "read": ".*"
+    }
+  ]
+}

@@ -18,7 +18,11 @@ class GrapeHealthMqttClient:
         self._client_id = client_id
         self._status_topic = f"{status_topic_prefix}/{client_id}"
 
-        self.client = mqtt.Client(client_id=client_id, protocol=mqtt.MQTTv311)
+        self.client = mqtt.Client(
+            callback_api_version=mqtt.CallbackAPIVersion.VERSION2,
+            client_id=client_id,
+            protocol=mqtt.MQTTv311,
+        )
         self.client.username_pw_set(
             os.environ.get("RABBITMQ_USER", "grapehealth"),
             os.environ.get("RABBITMQ_PASS", "grapehealth"),
@@ -46,12 +50,12 @@ class GrapeHealthMqttClient:
         self.client.loop_stop()
         self.client.disconnect()
 
-    def _on_connect(self, client, userdata, flags, rc):
-        if rc == 0:
+    def _on_connect(self, client, userdata, connect_flags, reason_code, properties):
+        if not reason_code.is_failure:
             logger.info("Connesso al broker MQTT (client_id=%s)", self._client_id)
         else:
-            logger.error("Connessione MQTT fallita, rc=%s", rc)
+            logger.error("Connessione MQTT fallita: %s", reason_code)
 
-    def _on_disconnect(self, client, userdata, rc):
-        if rc != 0:
-            logger.warning("Disconnessione inattesa dal broker (rc=%s), riconnessione in corso...", rc)
+    def _on_disconnect(self, client, userdata, disconnect_flags, reason_code, properties):
+        if reason_code.is_failure:
+            logger.warning("Disconnessione inattesa dal broker (%s), riconnessione in corso...", reason_code)

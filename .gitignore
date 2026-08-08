@@ -1,4 +1,7 @@
 .env
+secrets/*
+!secrets/*.example
+infra/rabbitmq/definitions.json
 target/
 *.class
 *.jar

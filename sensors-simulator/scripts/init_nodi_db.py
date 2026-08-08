@@ -21,11 +21,25 @@ from dotenv import load_dotenv
 
 CONFIG_PATH = Path(__file__).resolve().parent.parent / "config" / "nodi.yaml"
 
-UPSERT_QUERY = """
-    INSERT INTO nodo_sensore (codice, parcella, tipo_nodo, latitudine, longitudine, attivo, data_installazione)
+UPSERT_PARCELLA_QUERY = """
+    INSERT INTO parcella (nome, varieta, colore_bacca, lunghezza_germoglio_cm,
+                           germoglio_aggiornato_il, latitudine, longitudine)
+    VALUES (%s, %s, %s, %s, CURRENT_DATE, %s, %s)
+    ON CONFLICT (nome) DO UPDATE SET
+        varieta = EXCLUDED.varieta,
+        colore_bacca = EXCLUDED.colore_bacca,
+        lunghezza_germoglio_cm = EXCLUDED.lunghezza_germoglio_cm,
+        germoglio_aggiornato_il = CURRENT_DATE,
+        latitudine = EXCLUDED.latitudine,
+        longitudine = EXCLUDED.longitudine
+    RETURNING id;
+"""
+
+UPSERT_NODO_QUERY = """
+    INSERT INTO nodo_sensore (codice, parcella_id, tipo_nodo, latitudine, longitudine, attivo, data_installazione)
     VALUES (%s, %s, %s, %s, %s, TRUE, CURRENT_DATE)
     ON CONFLICT (codice) DO UPDATE SET
-        parcella = EXCLUDED.parcella,
+        parcella_id = EXCLUDED.parcella_id,
         tipo_nodo = EXCLUDED.tipo_nodo,
         latitudine = EXCLUDED.latitudine,
         longitudine = EXCLUDED.longitudine,
@@ -39,33 +53,58 @@ def main():
     with open(CONFIG_PATH, encoding="utf-8") as f:
         config = yaml.safe_load(f)
 
+    # Se POSTGRES_USER/POSTGRES_PASSWORD non sono nell'ambiente (es. .env non generato con scripts/setup-credentials.sh),
+    # lo script si interrompe subito con un messaggio esplicativo invece di tentare l'accesso con la credenziale condivisa in chiaro.
+    try:
+        pg_user = os.environ["POSTGRES_USER"]
+        pg_password = os.environ["POSTGRES_PASSWORD"]
+    except KeyError as exc:
+        print(
+            f"Variabile d'ambiente {exc} mancante: esegui ./scripts/setup-credentials.sh "
+            "dalla root del repository e ricarica l'ambiente (.env) prima di rilanciare questo script.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
     try:
         conn = psycopg2.connect(
             host=os.environ.get("PG_HOST", "localhost"),
             port=os.environ.get("PG_PORT", 5432),
             dbname=os.environ.get("POSTGRES_DB", "grapehealth"),
-            user=os.environ.get("POSTGRES_USER", "grapehealth"),
-            password=os.environ.get("POSTGRES_PASSWORD", "grapehealth"),
+            user=pg_user,
+            password=pg_password,
         )
     except psycopg2.OperationalError as exc:
         print(f"Impossibile connettersi a PostgreSQL: {exc}", file=sys.stderr)
         sys.exit(1)
 
-    totale = 0
+    totale_parcelle = 0
+    totale_nodi = 0
     with conn, conn.cursor() as cur:
         for parcella in config["parcelle"]:
+            cur.execute(UPSERT_PARCELLA_QUERY, (
+                parcella["nome"],
+                parcella["varieta"],
+                parcella["colore_bacca"],
+                parcella["stadio_fenologico_germogli_cm"],
+                parcella["latitudine"],
+                parcella["longitudine"],
+            ))
+            parcella_id = cur.fetchone()[0]
+            totale_parcelle += 1
+
             for nodo in parcella["nodi"]:
-                cur.execute(UPSERT_QUERY, (
+                cur.execute(UPSERT_NODO_QUERY, (
                     nodo["codice"],
-                    parcella["nome"],
+                    parcella_id,
                     nodo["tipo"],
                     parcella["latitudine"],
                     parcella["longitudine"],
                 ))
-                totale += 1
+                totale_nodi += 1
 
     conn.close()
-    print(f"Sincronizzati {totale} nodi su nodo_sensore.")
+    print(f"Sincronizzate {totale_parcelle} parcelle e {totale_nodi} nodi su nodo_sensore.")
 
 
 if __name__ == "__main__":

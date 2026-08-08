@@ -1,12 +1,12 @@
 package it.pegasopw.grapehealth.decisionengine.regole;
 
+import it.pegasopw.grapehealth.decisionengine.cache.CacheGermogli;
 import it.pegasopw.grapehealth.decisionengine.model.dto.MisurazioneMessage;
 import it.pegasopw.grapehealth.decisionengine.model.evento.AllertaEvent;
 import it.pegasopw.grapehealth.decisionengine.stato.StatoRischio;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -21,18 +21,13 @@ public class RegolaTreDieci implements RegolaRischio {
     private static final double SOGLIA_PIOGGIA_MM = 10.0;
     private static final double SOGLIA_GERMOGLI_CM = 10.0;
 
-    // Finestra scelta come estremo più ampio di quello che troviamo in bibliografia (24-48h, Baldacci 1947): scelta metodologica dichiarata, non un valore di per sé bibliografico.
     private static final Duration FINESTRA_PIOGGIA = Duration.ofHours(48);
 
-    // Per la lunghezza del germoglio non esiste ovviamente un sensore/parametro che la pubblichi
-    // via MQTT/AMQP (nella pratica agronomica si rileva con sopralluogo periodico e non continuo).
-    // Valori allineati alle proprietà dei nodi (sensors-simulator/config/nodi.yaml), dunque questa è una
-    // semplificazione dichiarata da riportare nei limiti del prototipo.
-    private static final Map<String, Double> GERMOGLI_CM_PER_PARCELLA = Map.of(
-            "parcellaA", 12.0,
-            "parcellaB", 14.0,
-            "parcellaC", 10.0
-    );
+    private final CacheGermogli cacheGermogli;
+
+    public RegolaTreDieci(CacheGermogli cacheGermogli) {
+        this.cacheGermogli = cacheGermogli;
+    }
 
     @Override
     public boolean isApplicabile(MisurazioneMessage m) {
@@ -62,7 +57,7 @@ public class RegolaTreDieci implements RegolaRischio {
 
         Double temperaturaCorrente = stato.valoreCorrente(chiaveTemperatura);
         double pioggiaCumulata = stato.sommaFinestra(chiavePioggia, m.timestampRilevazione(), FINESTRA_PIOGGIA);
-        double germogliCm = GERMOGLI_CM_PER_PARCELLA.getOrDefault(m.parcella(), 0.0);
+        double germogliCm = cacheGermogli.lunghezzaCm(m.parcella());
 
         boolean condizioneVerificata = temperaturaCorrente != null
                 && temperaturaCorrente >= SOGLIA_TEMPERATURA

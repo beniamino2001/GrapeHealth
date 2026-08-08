@@ -89,14 +89,13 @@ def genera_temp_bacca(temp_aria: float, dt: datetime, colore_bacca: str, scenari
     offset_max = 14.0 if colore_bacca == "nero" else 10.0  # Gambetta et al., 2021
     offset = offset_max * fattore_esposizione
     if scenario == "ondata_di_calore":
-        offset *= 1.2
+        offset *= 1.3
     return round(temp_aria + offset + random.uniform(-0.4, 0.4), 1)
 
 
-def genera_letture_nodo(tipo_nodo: str, dt: datetime, stato: StatoParcella, colore_bacca: str):
-    """Ritorna un dict {parametro: (valore, unita_misura)} per il tipo di nodo dato."""
+def genera_letture_nodo(tipo_nodo: str, dt: datetime, stato: StatoParcella, colore_bacca: str, temp_aria_riferimento: float):
     if tipo_nodo == "meteo":
-        t = genera_temp_aria(dt, stato.scenario)
+        t = temp_aria_riferimento
         u = genera_umidita_aria(t, stato.scenario)
         b = genera_bagnatura_fogliare(dt, stato.pioggia_oggi_mm, u)
         return {
@@ -109,6 +108,5 @@ def genera_letture_nodo(tipo_nodo: str, dt: datetime, stato: StatoParcella, colo
         rumore = round(random.uniform(-0.03, 0.03), 2)
         return {"psi_stem": (round(stato.psi_stem + rumore, 2), "MPa")}
     if tipo_nodo == "bacca":
-        t_aria = genera_temp_aria(dt, stato.scenario)
-        return {"temperatura_bacca": (genera_temp_bacca(t_aria, dt, colore_bacca, stato.scenario), "C")}
+        return {"temperatura_bacca": (genera_temp_bacca(temp_aria_riferimento, dt, colore_bacca, stato.scenario), "C")}
     raise ValueError(f"Tipo nodo sconosciuto: {tipo_nodo}")
