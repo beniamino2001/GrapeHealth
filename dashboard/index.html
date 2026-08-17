@@ -6,6 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>GrapeHealth — Dashboard</title>
   <link rel="stylesheet" href="css/style.css">
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.5.0/chart.umd.min.js"></script>
 </head>
 
@@ -47,7 +48,7 @@
           <select id="filtroParametro"></select>
         </label>
         <label>
-          Finestra
+          Periodo del grafico
           <select id="filtroFinestra">
             <option value="breve" selected>Ultime letture</option>
             <option value="giorno">Ultimo giorno</option>
@@ -71,6 +72,18 @@
       <div class="tab-bar">
         <button type="button" class="tab-btn active" data-stato="attiva">Attive</button>
         <button type="button" class="tab-btn" data-stato="risolta">Risolte</button>
+      </div>
+      <div id="filtriRisolte" class="filtri-risolte" hidden>
+        <select id="filtroRisolteTipo">
+          <option value="">Tutti i tipi</option>
+          <option value="stress_idrico">Stress idrico</option>
+          <option value="ondata_di_calore">Ondata di calore</option>
+          <option value="sunburn">Sunburn</option>
+          <option value="tre_dieci">Regola del tre-dieci</option>
+        </select>
+        <select id="filtroRisolteParcella">
+          <option value="">Tutte le parcelle</option>
+        </select>
       </div>
       <p id="alertError" class="error-text"></p>
       <div class="allerte-content">
@@ -108,11 +121,15 @@
         </div>
         <div class="kpi-card">
           <span class="kpi-valore" id="kpiTassoEsecuzione">—</span>
-          <span class="kpi-etichetta">Raccomandazioni con azione simulata eseguita</span>
+          <span class="kpi-etichetta">Raccomandazioni con azione eseguita (recenti)</span>
         </div>
         <div class="kpi-card">
           <span class="kpi-valore" id="kpiTempoRisposta">—</span>
           <span class="kpi-etichetta">Tempo medio esecuzione → risoluzione</span>
+        </div>
+        <div class="kpi-card">
+          <span class="kpi-valore" id="kpiUltimaRicevuta">—</span>
+          <span class="kpi-etichetta">Ultima misurazione ricevuta (ora reale)</span>
         </div>
       </div>
       <div class="stat-charts">

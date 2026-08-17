@@ -3,6 +3,7 @@ package it.pegasopw.grapehealth.persistence.config;
 import it.pegasopw.grapehealth.persistence.listener.MisurazionePersistenceListener;
 import org.springframework.amqp.core.Binding;
 import org.springframework.amqp.core.BindingBuilder;
+import org.springframework.amqp.core.DirectExchange;
 import org.springframework.amqp.core.Queue;
 import org.springframework.amqp.core.QueueBuilder;
 import org.springframework.amqp.core.TopicExchange;
@@ -23,14 +24,43 @@ public class RabbitConfig {
     public static final String ALLERTE_QUEUE = "grapehealth.persistence.allerte";
     public static final String ALLERTE_ROUTING_KEY = "allerta.#";
 
+    // Senza questa configurazione, il comportamento di default di Spring AMQP
+    // su un'eccezione non gestita nel listener è il reinvio indefinito 
+    // dello stesso messaggio, non il suo scarto in una coda ispezionabile.
+    public static final String DEAD_LETTER_EXCHANGE = "grapehealth.dlx";
+    public static final String MISURAZIONI_DLQ = "grapehealth.persistence.misurazioni.dlq";
+    public static final String MISURAZIONI_DLQ_ROUTING_KEY = "persistence.misurazioni.dead";
+    public static final String ALLERTE_DLQ = "grapehealth.persistence.allerte.dlq";
+    public static final String ALLERTE_DLQ_ROUTING_KEY = "persistence.allerte.dead";
+
     @Bean
     public TopicExchange mqttBridgeExchange() {
         return new TopicExchange(MQTT_BRIDGE_EXCHANGE, true, false);
     }
 
     @Bean
+    public DirectExchange deadLetterExchange() {
+        return new DirectExchange(DEAD_LETTER_EXCHANGE, true, false);
+    }
+
+    @Bean
+    public Queue misurazioniDeadLetterQueue() {
+        return QueueBuilder.durable(MISURAZIONI_DLQ).build();
+    }
+
+    @Bean
+    public Binding misurazioniDeadLetterBinding(Queue misurazioniDeadLetterQueue, DirectExchange deadLetterExchange) {
+        return BindingBuilder.bind(misurazioniDeadLetterQueue)
+                .to(deadLetterExchange)
+                .with(MISURAZIONI_DLQ_ROUTING_KEY);
+    }
+
+    @Bean
     public Queue misurazioniQueue() {
-        return QueueBuilder.durable(MISURAZIONI_QUEUE).build();
+        return QueueBuilder.durable(MISURAZIONI_QUEUE)
+                .withArgument("x-dead-letter-exchange", DEAD_LETTER_EXCHANGE)
+                .withArgument("x-dead-letter-routing-key", MISURAZIONI_DLQ_ROUTING_KEY)
+                .build();
     }
 
     @Bean
@@ -46,8 +76,23 @@ public class RabbitConfig {
     }
 
     @Bean
+    public Queue allerteDeadLetterQueue() {
+        return QueueBuilder.durable(ALLERTE_DLQ).build();
+    }
+
+    @Bean
+    public Binding allerteDeadLetterBinding(Queue allerteDeadLetterQueue, DirectExchange deadLetterExchange) {
+        return BindingBuilder.bind(allerteDeadLetterQueue)
+                .to(deadLetterExchange)
+                .with(ALLERTE_DLQ_ROUTING_KEY);
+    }
+
+    @Bean
     public Queue allerteQueue() {
-        return QueueBuilder.durable(ALLERTE_QUEUE).build();
+        return QueueBuilder.durable(ALLERTE_QUEUE)
+                .withArgument("x-dead-letter-exchange", DEAD_LETTER_EXCHANGE)
+                .withArgument("x-dead-letter-routing-key", ALLERTE_DLQ_ROUTING_KEY)
+                .build();
     }
 
     @Bean
@@ -73,6 +118,14 @@ public class RabbitConfig {
         container.setQueueNames(MISURAZIONI_QUEUE);
         container.setMessageListener(misurazionePersistenceListener);
         container.setPrefetchCount(50);
+        // Questo container è cablato a mano, non passa dalla container factory
+        // autoconfigurata da Spring Boot: le proprietà
+        // spring.rabbitmq.listener.simple.* di application.yaml non
+        // si applicano qui, va impostato esplicitamente. Nessun retry
+        // volutamente: un JSON malformato è un fallimento permanente, non
+        // transitorio e ritentarlo non lo risolverebbe, quindi va in
+        // dead-letter al primo fallimento invece di essere ritentato a vuoto.
+        container.setDefaultRequeueRejected(false);
         return container;
     }
 }

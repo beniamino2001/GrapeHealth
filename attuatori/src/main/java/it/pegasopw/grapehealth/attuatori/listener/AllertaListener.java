@@ -26,7 +26,10 @@ public class AllertaListener {
                 .addKeyValue("livelloRischio", evento.livelloRischio())
                 .addKeyValue("nodo", evento.nodo())
                 .addKeyValue("parcella", evento.parcella())
+                .addKeyValue("parametro", evento.parametro())
+                .addKeyValue("valoreOsservato", evento.valoreOsservato())
                 .addKeyValue("azione", azione)
+                .addKeyValue("messaggio", evento.messaggio())
                 .addKeyValue("timestampAllerta", evento.timestamp().toString())
                 .log("Attuazione simulata");
     }

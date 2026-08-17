@@ -2,6 +2,7 @@ package it.pegasopw.grapehealth.persistence.listener;
 
 import it.pegasopw.grapehealth.persistence.azione.MappatoreAzione;
 import it.pegasopw.grapehealth.persistence.cache.CacheNodi;
+import it.pegasopw.grapehealth.persistence.cache.CacheParcelle;
 import it.pegasopw.grapehealth.persistence.config.RabbitConfig;
 import it.pegasopw.grapehealth.persistence.model.entity.AllertaEntity;
 import it.pegasopw.grapehealth.persistence.model.entity.TrattamentoEntity;
@@ -23,17 +24,20 @@ public class AllertaPersistenceListener {
     private final AllertaRepository allertaRepository;
     private final TrattamentoRepository trattamentoRepository;
     private final CacheNodi cacheNodi;
+    private final CacheParcelle cacheParcelle;
     private final MappatoreAzione mappatoreAzione;
     private final SchedulerRisoluzioneAllerte schedulerRisoluzioneAllerte;
 
     public AllertaPersistenceListener(AllertaRepository allertaRepository,
                                       TrattamentoRepository trattamentoRepository,
                                       CacheNodi cacheNodi,
+                                      CacheParcelle cacheParcelle,
                                       MappatoreAzione mappatoreAzione,
                                       SchedulerRisoluzioneAllerte schedulerRisoluzioneAllerte) {
         this.allertaRepository = allertaRepository;
         this.trattamentoRepository = trattamentoRepository;
         this.cacheNodi = cacheNodi;
+        this.cacheParcelle = cacheParcelle;
         this.mappatoreAzione = mappatoreAzione;
         this.schedulerRisoluzioneAllerte = schedulerRisoluzioneAllerte;
     }
@@ -47,17 +51,27 @@ public class AllertaPersistenceListener {
             return;
         }
 
+        // A differenza del nodo, una parcella non risolvibile non blocca la
+        // scrittura: allerta.parcella_id è nullable e questo campo è un
+        // arricchimento (traccia diretta per regole a livello di parcella),
+        // non un dato indispensabile come nodo_id lo è in questo modulo.
+        Long parcellaId = cacheParcelle.idPerNome(evento.parcella());
+        if (parcellaId == null) {
+            log.warn("Parcella sconosciuta '{}', allerta persistita senza parcella_id", evento.parcella());
+        }
+
         AllertaEntity allerta = new AllertaEntity(
                 evento.tipo(),
                 evento.livelloRischio(),
                 nodoId,
+                parcellaId,
                 evento.messaggio(),
                 evento.tipo(),
                 evento.timestamp());
 
         allerta = allertaRepository.save(allerta);
-        log.info("Allerta persistita: id={}, tipo={}, livello={}, nodoId={}",
-                allerta.getId(), evento.tipo(), evento.livelloRischio(), nodoId);
+        log.info("Allerta persistita: id={}, tipo={}, livello={}, nodoId={}, parcellaId={}",
+                allerta.getId(), evento.tipo(), evento.livelloRischio(), nodoId, parcellaId);
 
         TrattamentoEntity trattamento = new TrattamentoEntity(
                 allerta.getId(),
@@ -67,8 +81,12 @@ public class AllertaPersistenceListener {
         trattamentoRepository.save(trattamento);
         log.info("Trattamento persistito: allertaId={}, tipoAzione={}", allerta.getId(), trattamento.getTipoAzione());
 
-        // La risoluzione dell'allerta e' pianificata con un ritardo REALE: 
-        // l'allerta resta "attiva" e visibile a chi consulta l'API in tempo reale per la durata del ritardo.
-        schedulerRisoluzioneAllerte.pianifica(allerta.getId(), evento.tipo(), evento.livelloRischio());
+        // La risoluzione dell'allerta è pianificata con un ritardo REALE,
+        // non applicata qui nella stessa transazione: l'allerta resta "attiva" e visibile
+        // a chi consulta l'API in tempo reale per la durata del ritardo. La
+        // scadenza pianificata viene anche persistita su
+        // allerta.risoluzione_pianificata_il, per poter essere ricostruita
+        // a un eventuale riavvio di questo processo.
+        schedulerRisoluzioneAllerte.pianifica(allerta);
     }
 }

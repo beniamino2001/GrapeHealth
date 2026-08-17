@@ -55,7 +55,10 @@ class AllertaListenerTest {
         assertEquals("severo", keyValues.get("livelloRischio"));
         assertEquals("idrico-A1", keyValues.get("nodo"));
         assertEquals("parcellaA", keyValues.get("parcella"));
+        assertEquals("psi_stem", keyValues.get("parametro"));
+        assertEquals("-1.5", keyValues.get("valoreOsservato"));
         assertEquals("irrigazione di soccorso d'emergenza", keyValues.get("azione"));
+        assertEquals("msg di test", keyValues.get("messaggio"));
     }
 
     @Test
@@ -69,5 +72,7 @@ class AllertaListenerTest {
                 .collect(Collectors.toMap(kv -> kv.key, kv -> String.valueOf(kv.value)));
 
         assertEquals("nebulizzazione anti-scottatura", keyValues.get("azione"));
+        assertEquals("temperatura_bacca", keyValues.get("parametro"));
+        assertEquals("46.0", keyValues.get("valoreOsservato"));
     }
 }

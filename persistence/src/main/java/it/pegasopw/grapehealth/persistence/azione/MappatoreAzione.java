@@ -3,6 +3,8 @@ package it.pegasopw.grapehealth.persistence.azione;
 import it.pegasopw.grapehealth.persistence.model.evento.AllertaEvent;
 import org.springframework.stereotype.Component;
 
+import java.util.Locale;
+
 @Component
 public class MappatoreAzione {
 
@@ -21,8 +23,12 @@ public class MappatoreAzione {
         };
     }
 
+    // Locale.ROOT esplicito: String.formatted() senza argomento usa il locale
+    // di default della JVM, che garantisce un output deterministico,
+    // indipendente dalla macchina che esegue il processo.
     public String note(AllertaEvent evento) {
-        return "tipo=%s, livello=%s, parametro=%s, valoreOsservato=%.2f, descrizione=%s".formatted(
+        return String.format(Locale.ROOT,
+                "tipo=%s, livello=%s, parametro=%s, valoreOsservato=%.2f, descrizione=%s",
                 evento.tipo(), evento.livelloRischio(), evento.parametro(),
                 evento.valoreOsservato(), evento.messaggio());
     }

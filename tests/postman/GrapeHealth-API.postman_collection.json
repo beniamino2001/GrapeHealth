@@ -1,0 +1,995 @@
+{
+  "info": {
+    "_postman_id": "c3b6d78d-9cfc-42b4-94c4-bc0238e51094",
+    "name": "api",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "56312415"
+  },
+  "item": [
+    {
+      "name": "/api/misurazioni",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 200\", () => pm.response.to.have.status(200));\npm.test(\"Risposta paginata con content\", () => {\n    const body = pm.response.json();\n    pm.expect(body).to.have.property(\"content\");\n    pm.expect(body.page).to.have.property(\"totalElements\");\n});\npm.test(\"Nodo/parcella arricchiti (non null)\", () => {\n    const body = pm.response.json();\n    if (body.content.length > 0) {\n        pm.expect(body.content[0].nodoCodice).to.not.be.null;\n        pm.expect(body.content[0].parcella).to.not.be.null;\n    }\n});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/misurazioni",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "misurazioni"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "/api/misurazioni?dal=2026-08-03T00:00:00Z&al=2026-08-01T00:00:00Z",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status 400 per intervallo invertito\", () => pm.response.to.have.status(400));",
+              "pm.test(\"Errore ben formato\", () => {",
+              "    const body = pm.response.json();",
+              "    pm.expect(body.errore).to.eql(\"Parametri non validi\");",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/misurazioni?dal=2026-08-03T00:00:00Z&al=2026-08-01T00:00:00Z",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "misurazioni"
+          ],
+          "query": [
+            {
+              "key": "dal",
+              "value": "2026-08-03T00:00:00Z"
+            },
+            {
+              "key": "al",
+              "value": "2026-08-01T00:00:00Z"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "/api/misurazioni?dal=2026-08-01T00:00:00Z&al=2026-08-03T23:59:59Z",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              ""
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/misurazioni?dal=2026-08-01T00:00:00Z&al=2026-08-03T23:59:59Z",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "misurazioni"
+          ],
+          "query": [
+            {
+              "key": "dal",
+              "value": "2026-08-01T00:00:00Z"
+            },
+            {
+              "key": "al",
+              "value": "2026-08-03T23:59:59Z"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "/api/misurazioni?parametro=temperatura_aria",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/misurazioni?parametro=temperatura_aria",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "misurazioni"
+          ],
+          "query": [
+            {
+              "key": "parametro",
+              "value": "temperatura_aria"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "/api/misurazioni?parcella=parcellaA",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Tutte le righe appartengono a parcellaA\", () => {",
+              "    const body = pm.response.json();",
+              "    if (body.content.length > 0) {",
+              "        pm.expect(body.content.every(m => m.parcella === \"parcellaA\")).to.be.true;",
+              "    }",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/misurazioni?parcella=parcellaA",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "misurazioni"
+          ],
+          "query": [
+            {
+              "key": "parcella",
+              "value": "parcellaA"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "/api/misurazioni?page=1&size=10",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/misurazioni?page=1&size=10",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "misurazioni"
+          ],
+          "query": [
+            {
+              "key": "page",
+              "value": "1"
+            },
+            {
+              "key": "size",
+              "value": "10"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "/api/misurazioni?parcella=parcellaZ",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 200\", () => pm.response.to.have.status(200));\npm.test(\"Parcella sconosciuta: nessun risultato\", () => {\n    const body = pm.response.json();\n    pm.expect(body.content).to.have.lengthOf(0);\n    pm.expect(body.page.totalElements).to.eql(0);\n});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/misurazioni?parcella=parcellaZ",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "misurazioni"
+          ],
+          "query": [
+            {
+              "key": "parcella",
+              "value": "parcellaZ"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "/api/misurazioni?dal=non-una-data",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 400 per parametro malformato\", () => pm.response.to.have.status(400));\npm.test(\"Corpo JSON strutturato, non pagina di errore del container\", () => {\n    const body = pm.response.json();\n    pm.expect(body.status).to.eql(400);\n    pm.expect(body.errore).to.eql(\"Parametri non validi\");\n    pm.expect(body.messaggio).to.include(\"dal\");\n});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/misurazioni?dal=non-una-data",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "misurazioni"
+          ],
+          "query": [
+            {
+              "key": "dal",
+              "value": "non-una-data"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "/api/allerte",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Solo allerte attive di default\", () => {",
+              "    const body = pm.response.json();",
+              "    body.content.forEach(a => pm.expect(a.stato).to.eql(\"attiva\"));",
+              "});",
+              "",
+              "const body = pm.response.json();",
+              "if (body.content.length > 0) {",
+              "    pm.environment.set(\"allertaIdConTrattamento\", body.content[0].id);",
+              "}"
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/allerte",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "allerte"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "/api/allerte?stato=risolta",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/allerte?stato=risolta",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "allerte"
+          ],
+          "query": [
+            {
+              "key": "stato",
+              "value": "risolta"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "/api/allerte?tipo=sunburn",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/allerte?tipo=sunburn",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "allerte"
+          ],
+          "query": [
+            {
+              "key": "tipo",
+              "value": "sunburn"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "/api/allerte?tipo=sunburn&stato=risolta",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+              "",
+              "const body = pm.response.json();",
+              "if (body.content.length > 0) {",
+              "    pm.environment.set(\"allertaIdSunburn\", body.content[0].id);",
+              "} else {",
+              "    console.warn(\"Nessuna allerta sunburn risolta trovata: il test su /api/raccomandazioni?allertaId={{allertaIdSunburn}} sara' saltato/fallira' isolatamente.\");",
+              "}"
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/allerte?tipo=sunburn&stato=risolta",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "allerte"
+          ],
+          "query": [
+            {
+              "key": "tipo",
+              "value": "sunburn"
+            },
+            {
+              "key": "stato",
+              "value": "risolta"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "/api/allerte?tipo=ondata_di_calore&stato=attiva",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/allerte?tipo=ondata_di_calore&stato=attiva",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "allerte"
+          ],
+          "query": [
+            {
+              "key": "tipo",
+              "value": "ondata_di_calore"
+            },
+            {
+              "key": "stato",
+              "value": "attiva"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "/api/allerte?tipo=stress_idrico&stato=risolta",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 200\", () => pm.response.to.have.status(200));\n\nconst body = pm.response.json();\nif (body.content.length > 0) {\n    pm.environment.set(\"allertaIdStressIdrico\", body.content[0].id);\n} else {\n    pm.environment.set(\"allertaIdStressIdrico\", \"0\");\n    console.warn(\"Nessuna allerta stress_idrico risolta trovata in questo run: uso l'id sentinella 0.\");\n}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/allerte?tipo=stress_idrico&stato=risolta",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "allerte"
+          ],
+          "query": [
+            {
+              "key": "tipo",
+              "value": "stress_idrico"
+            },
+            {
+              "key": "stato",
+              "value": "risolta"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "/api/allerte?parcella=parcellaA",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Tutte le allerte appartengono a parcellaA (filtro diretto via parcella_id)\", () => {",
+              "    const body = pm.response.json();",
+              "    if (body.content.length > 0) {",
+              "        pm.expect(body.content.every(a => a.parcella === \"parcellaA\")).to.be.true;",
+              "    }",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/allerte?parcella=parcellaA",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "allerte"
+          ],
+          "query": [
+            {
+              "key": "parcella",
+              "value": "parcellaA"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "/api/allerte?parcella=parcellaZ",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 200\", () => pm.response.to.have.status(200));\npm.test(\"Parcella sconosciuta: nessun risultato\", () => {\n    const body = pm.response.json();\n    pm.expect(body.content).to.have.lengthOf(0);\n    pm.expect(body.page.totalElements).to.eql(0);\n});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/allerte?parcella=parcellaZ",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "allerte"
+          ],
+          "query": [
+            {
+              "key": "parcella",
+              "value": "parcellaZ"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "/api/raccomandazioni",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Ogni raccomandazione ha l'arricchimento bibliografico\", () => {",
+              "    const body = pm.response.json();",
+              "    if (body.length > 0) {",
+              "        const r = body[0];",
+              "        pm.expect(r.descrizioneRegola).to.not.be.null;",
+              "        pm.expect(r.fonteBibliograficaRegola).to.not.be.null;",
+              "        pm.expect(r.azioniAlternative).to.be.an(\"array\");",
+              "        pm.expect(r.azioniAlternative.length).to.be.greaterThan(0);",
+              "    }",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/raccomandazioni",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "raccomandazioni"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "/api/raccomandazioni?allertaId={{allertaIdConTrattamento}}",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Flag basedOnSimulatedExecution coerente\", () => {",
+              "    const body = pm.response.json();",
+              "    const raccomandazione = Array.isArray(body) ? body[0] : body;",
+              "    if (raccomandazione.basedOnSimulatedExecution) {",
+              "        pm.expect(raccomandazione.azioneEseguita).to.not.be.null;",
+              "        pm.expect(raccomandazione.esitoSimulato).to.not.be.null;",
+              "    } else {",
+              "        pm.expect(raccomandazione.azioneEseguita).to.be.null;",
+              "    }",
+              "});",
+              "pm.test(\"Arricchimento bibliografico presente\", () => {",
+              "    const body = pm.response.json();",
+              "    const raccomandazione = Array.isArray(body) ? body[0] : body;",
+              "    pm.expect(raccomandazione.descrizioneRegola).to.not.be.null;",
+              "    pm.expect(raccomandazione.fonteBibliograficaRegola).to.not.be.null;",
+              "    pm.expect(raccomandazione.azioniAlternative).to.be.an(\"array\");",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/raccomandazioni?allertaId={{allertaIdConTrattamento}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "raccomandazioni"
+          ],
+          "query": [
+            {
+              "key": "allertaId",
+              "value": "{{allertaIdConTrattamento}}"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "/api/raccomandazioni?allertaId={{allertaIdSunburn}}",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Sunburn: quattro azioni alternative dal catalogo bibliografico\", () => {",
+              "    const body = pm.response.json();",
+              "    const r = Array.isArray(body) ? body[0] : body;",
+              "    pm.expect(r.azioniAlternative).to.have.lengthOf(4);",
+              "    const codici = r.azioniAlternative.map(a => a.codice);",
+              "    [\"nebulizzazione\", \"applicazione_caolino\", \"rete_ombreggiante\", \"applicazione_zeolite\"].forEach(atteso => {",
+              "        pm.expect(codici).to.include(atteso);",
+              "    });",
+              "    r.azioniAlternative.forEach(a => {",
+              "        pm.expect(a.descrizione).to.not.be.null;",
+              "    });",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/raccomandazioni?allertaId={{allertaIdSunburn}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "raccomandazioni"
+          ],
+          "query": [
+            {
+              "key": "allertaId",
+              "value": "{{allertaIdSunburn}}"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "/api/raccomandazioni?allertaId={{allertaIdStressIdrico}}",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 200 o 404 (nessuna allerta stress_idrico in questo run)\", () => {\n    pm.expect(pm.response.code).to.be.oneOf([200, 404]);\n});\npm.test(\"Stress idrico: una sola azione alternativa\", () => {\n    if (pm.response.code !== 200) return;\n    const body = pm.response.json();\n    const r = Array.isArray(body) ? body[0] : body;\n    pm.expect(r.azioniAlternative).to.have.lengthOf(1);\n    pm.expect(r.azioniAlternative[0].codice).to.eql(\"irrigazione_soccorso\");\n});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/raccomandazioni?allertaId={{allertaIdStressIdrico}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "raccomandazioni"
+          ],
+          "query": [
+            {
+              "key": "allertaId",
+              "value": "{{allertaIdStressIdrico}}"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "/api/raccomandazioni?allertaIds={{allertaIdSunburn}}&allertaIds={{allertaIdStressIdrico}}",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 200\", () => pm.response.to.have.status(200));\npm.test(\"Restituisce le raccomandazioni per l'insieme richiesto, non l'elenco delle attive\", () => {\n    const body = pm.response.json();\n    pm.expect(body).to.be.an(\"array\");\n    const idsAttesi = [pm.environment.get(\"allertaIdSunburn\"), pm.environment.get(\"allertaIdStressIdrico\")].map(Number).filter(id => Number.isFinite(id) && id > 0);\n    if (idsAttesi.length > 0) {\n        const idsRicevuti = body.map(r => r.allertaId);\n        idsAttesi.forEach(id => pm.expect(idsRicevuti).to.include(id));\n    }\n});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/raccomandazioni?allertaIds={{allertaIdSunburn}}&allertaIds={{allertaIdStressIdrico}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "raccomandazioni"
+          ],
+          "query": [
+            {
+              "key": "allertaIds",
+              "value": "{{allertaIdSunburn}}"
+            },
+            {
+              "key": "allertaIds",
+              "value": "{{allertaIdStressIdrico}}"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "/api/raccomandazioni?allertaIds=999999&allertaIds={{allertaIdSunburn}}",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status 200 anche con un id inesistente nel batch (non 404)\", () => pm.response.to.have.status(200));",
+              "pm.test(\"L'id inesistente viene ignorato, non l'intera richiesta\", () => {",
+              "    const body = pm.response.json();",
+              "    pm.expect(body).to.be.an(\"array\");",
+              "    const idAtteso = pm.environment.get(\"allertaIdSunburn\");",
+              "    if (idAtteso) {",
+              "        pm.expect(body.map(r => r.allertaId)).to.include(Number(idAtteso));",
+              "        pm.expect(body.map(r => r.allertaId)).to.not.include(999999);",
+              "    }",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/raccomandazioni?allertaIds=999999&allertaIds={{allertaIdSunburn}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "raccomandazioni"
+          ],
+          "query": [
+            {
+              "key": "allertaIds",
+              "value": "999999"
+            },
+            {
+              "key": "allertaIds",
+              "value": "{{allertaIdSunburn}}"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "/api/raccomandazioni?allertaId=999999",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status 404 per id inesistente\", () => pm.response.to.have.status(404));"
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/raccomandazioni?allertaId=999999",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "raccomandazioni"
+          ],
+          "query": [
+            {
+              "key": "allertaId",
+              "value": "999999"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "/api/parcelle",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 200\", () => pm.response.to.have.status(200));\npm.test(\"Restituisce le tre parcelle note\", () => {\n    pm.expect(pm.response.json()).to.have.lengthOf(3);\n});\npm.test(\"Dati agronomici di parcellaA coerenti col seed\", () => {\n    const p = pm.response.json().find(x => x.nome === \"parcellaA\");\n    pm.expect(p).to.exist;\n    pm.expect(p.varieta).to.eql(\"Sangiovese\");\n    pm.expect(p.coloreBacca).to.eql(\"nero\");\n    pm.expect(p.lunghezzaGermoglioCm).to.eql(12);\n});\npm.test(\"Nessun campo agronomico nullo su nessuna parcella\", () => {\n    pm.response.json().forEach(p => {\n        pm.expect(p.varieta).to.not.be.null;\n        pm.expect(p.coloreBacca).to.not.be.null;\n        pm.expect(p.lunghezzaGermoglioCm).to.not.be.null;\n    });\n});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/parcelle",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "parcelle"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "/api/parcelle/parcellaC",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 200\", () => pm.response.to.have.status(200));\npm.test(\"Dettaglio parcellaC coerente col seed (varieta' bianca)\", () => {\n    const body = pm.response.json();\n    pm.expect(body.nome).to.eql(\"parcellaC\");\n    pm.expect(body.varieta).to.eql(\"Trebbiano\");\n    pm.expect(body.coloreBacca).to.eql(\"bianco\");\n    pm.expect(body.lunghezzaGermoglioCm).to.eql(10);\n});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/parcelle/parcellaC",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "parcelle",
+            "parcellaC"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "/api/parcelle/parcellaZ",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 404 per parcella inesistente\", () => pm.response.to.have.status(404));\npm.test(\"Corpo errore coerente col formato ErroreResponse\", () => {\n    const body = pm.response.json();\n    pm.expect(body.status).to.eql(404);\n    pm.expect(body.messaggio).to.include(\"parcellaZ\");\n});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/parcelle/parcellaZ",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "parcelle",
+            "parcellaZ"
+          ]
+        }
+      },
+      "response": []
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "packages": {},
+        "requests": {},
+        "exec": [
+          ""
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "packages": {},
+        "requests": {},
+        "exec": [
+          ""
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": ""
+    }
+  ]
+}

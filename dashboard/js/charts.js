@@ -8,8 +8,6 @@ const COLORI_PARCELLA = {
   parcellaC: '#c0785a',
 };
 
-const MAX_PUNTI_PER_SERIE = 400;
-
 // Riduce una serie di punti a un massimo prestabilito mantenendo un campionamento uniforme nel tempo (passo costante), preservando però l'ultimo punto della serie
 function decima(punti, massimo) {
   if (punti.length <= massimo) return punti;
@@ -21,25 +19,33 @@ function decima(punti, massimo) {
 }
 
 let trendChart = null;
+const MAX_PUNTI_SENZA_FINESTRA = 400;
+const MAX_PUNTI_CON_FINESTRA = 150; // meno punti su finestre ampie: leggibilita' prima di densita'
 
-function renderTrendChart(canvasId, misurazioni, parametro, parcellaSelezionata, unitaMisura) {
+function renderTrendChart(canvasId, misurazioni, parametro, parcellaSelezionata, unitaMisura, finestraAttiva = false) {
   const ctx = document.getElementById(canvasId).getContext('2d');
   if (trendChart) trendChart.destroy();
 
   const titoloAsseY = `${parametro.replaceAll('_', ' ')}${unitaMisura ? ` (${unitaMisura})` : ''}`;
+  const maxPunti = finestraAttiva ? MAX_PUNTI_CON_FINESTRA : MAX_PUNTI_SENZA_FINESTRA;
+  // Con una finestra temporale attiva (giorno/3 giorni/settimana) i marcatori
+  // individuali vengono nascosti: su centinaia di punti producono solo una
+  // nuvola confusa, la linea da sola comunica meglio l'andamento.
+  const raggioPunto = finestraAttiva ? 0 : 2;
+
   let datasets;
 
   if (parcellaSelezionata) {
     const punti = decima(
       [...misurazioni].sort((a, b) => new Date(a.rilevatoIl) - new Date(b.rilevatoIl)),
-      MAX_PUNTI_PER_SERIE
+      maxPunti
     );
     datasets = [{
       label: parcellaSelezionata,
       data: punti.map(m => ({ x: new Date(m.rilevatoIl).getTime(), y: m.valore })),
       borderColor: COLORI_PARCELLA[parcellaSelezionata] || '#5b8c5a',
       backgroundColor: 'rgba(91,140,90,0.15)',
-      tension: 0.2, fill: true, pointRadius: 2,
+      tension: 0.2, fill: true, pointRadius: raggioPunto,
     }];
   } else {
     const perParcella = {};
@@ -48,14 +54,14 @@ function renderTrendChart(canvasId, misurazioni, parametro, parcellaSelezionata,
     datasets = Object.keys(perParcella).sort().map(parcella => {
       const punti = decima(
         [...perParcella[parcella]].sort((a, b) => new Date(a.rilevatoIl) - new Date(b.rilevatoIl)),
-        MAX_PUNTI_PER_SERIE
+        maxPunti
       );
       return {
         label: parcella,
         data: punti.map(m => ({ x: new Date(m.rilevatoIl).getTime(), y: m.valore })),
         borderColor: COLORI_PARCELLA[parcella] || '#999',
         backgroundColor: 'transparent',
-        tension: 0.2, pointRadius: 2,
+        tension: 0.2, pointRadius: raggioPunto,
       };
     });
   }
@@ -90,6 +96,26 @@ function renderTrendChart(canvasId, misurazioni, parametro, parcellaSelezionata,
   });
 }
 
+// Mostra un messaggio testuale al posto del canvas quando non ci sono dati da
+// rappresentare (es. nessuna allerta attiva): senza questo controllo Chart.js
+// lascia semplicemente l'area bianca, indistinguibile da un problema di
+// rendering.
+function gestisciStatoVuotoGrafico(canvasId, vuoto) {
+  const canvas = document.getElementById(canvasId);
+  const wrapper = canvas.closest('.chart-wrapper');
+  let placeholder = wrapper.querySelector('.chart-empty-state');
+  if (!placeholder) {
+    placeholder = document.createElement('p');
+    placeholder.className = 'chart-empty-state empty-state';
+    placeholder.textContent = 'Nessun dato da mostrare.';
+    wrapper.appendChild(placeholder);
+  }
+  // visibility, non display: il canvas mantiene lo spazio occupato, cosi'
+  // Chart.js non deve ricalcolare le dimensioni quando i dati tornano.
+  canvas.style.visibility = vuoto ? 'hidden' : 'visible';
+  placeholder.style.display = vuoto ? 'flex' : 'none';
+}
+
 let alertTypeChart = null;
 
 const COLORI_TIPO = {
@@ -111,6 +137,8 @@ function renderAlertTypeChart(canvasId, allerte) {
 
   const tipiGrezzi = Object.keys(conteggi);
   const colori = tipiGrezzi.map(t => COLORI_TIPO[t] || '#999');
+
+  gestisciStatoVuotoGrafico(canvasId, tipiGrezzi.length === 0);
 
   if (alertTypeChart) alertTypeChart.destroy();
 
@@ -156,6 +184,8 @@ function renderAlertParcellaChart(canvasId, allerte) {
   allerte.forEach(a => { conteggi[a.parcella] = (conteggi[a.parcella] || 0) + 1; });
   const parcelle = Object.keys(conteggi).sort();
 
+  gestisciStatoVuotoGrafico(canvasId, parcelle.length === 0);
+
   if (alertParcellaChart) alertParcellaChart.destroy();
   alertParcellaChart = new Chart(ctx, {
     type: 'bar',
@@ -174,13 +204,15 @@ function renderAlertParcellaChart(canvasId, allerte) {
 
 function renderAlertLivelloChart(canvasId, allerte) {
   const ctx = document.getElementById(canvasId).getContext('2d');
-  const ordineLivelli = ['lieve', 'moderato', 'alto', 'severo', 'critico'];
+  const ordineLivelli = ['moderato', 'severo'];
   const conteggi = {};
   allerte.forEach(a => {
     const l = (a.livelloRischio || 'non specificato').toLowerCase();
     conteggi[l] = (conteggi[l] || 0) + 1;
   });
   const livelli = Object.keys(conteggi).sort((a, b) => ordineLivelli.indexOf(a) - ordineLivelli.indexOf(b));
+
+  gestisciStatoVuotoGrafico(canvasId, livelli.length === 0);
 
   if (alertLivelloChart) alertLivelloChart.destroy();
   alertLivelloChart = new Chart(ctx, {
@@ -207,6 +239,8 @@ function renderAzioniChart(canvasId, raccomandazioni) {
     conteggi[azione] = (conteggi[azione] || 0) + 1;
   });
   const azioni = Object.keys(conteggi).sort();
+
+  gestisciStatoVuotoGrafico(canvasId, azioni.length === 0);
 
   if (azioniChart) azioniChart.destroy();
   azioniChart = new Chart(ctx, {

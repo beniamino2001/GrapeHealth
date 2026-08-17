@@ -22,6 +22,7 @@ class RitardoRisoluzioneTest {
         assertEquals(Duration.ofMinutes(40), ritardo.perAllerta("sunburn", "severo"));
         assertEquals(Duration.ofMinutes(20), ritardo.perAllerta("ondata_di_calore", "moderato"));
         assertEquals(Duration.ofHours(24), ritardo.perAllerta("tre_dieci", "moderato"));
+        assertEquals(Duration.ofHours(6), ritardo.perAllerta("tre_dieci", "severo"));
     }
 
     @Test
@@ -39,11 +40,19 @@ class RitardoRisoluzioneTest {
     }
 
     @Test
-    void treDieciHaIlRitardoPiuLungoDiTutti() {
-        Duration treDieci = ritardo.perAllerta("tre_dieci", "moderato");
-        assertTrue(treDieci.compareTo(ritardo.perAllerta("stress_idrico", "severo")) > 0);
-        assertTrue(treDieci.compareTo(ritardo.perAllerta("sunburn", "severo")) > 0);
-        assertTrue(treDieci.compareTo(ritardo.perAllerta("ondata_di_calore", "moderato")) > 0);
+    void treDieciSeveroImpiegaMenoTempoDiModeratoPercheLaFinestraSiStaChiudendo() {
+        Duration moderato = ritardo.perAllerta("tre_dieci", "moderato");
+        Duration severo = ritardo.perAllerta("tre_dieci", "severo");
+        assertTrue(severo.compareTo(moderato) < 0,
+                "tre_dieci è l'unico tipo dove severo è più urgente, quindi più breve, non più lungo");
+    }
+
+    @Test
+    void treDieciModeratoHaIlRitardoPiuLungoDiTutti() {
+        Duration treDieciModerato = ritardo.perAllerta("tre_dieci", "moderato");
+        assertTrue(treDieciModerato.compareTo(ritardo.perAllerta("stress_idrico", "severo")) > 0);
+        assertTrue(treDieciModerato.compareTo(ritardo.perAllerta("sunburn", "severo")) > 0);
+        assertTrue(treDieciModerato.compareTo(ritardo.perAllerta("ondata_di_calore", "moderato")) > 0);
     }
 
     @Test

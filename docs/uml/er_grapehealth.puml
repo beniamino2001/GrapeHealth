@@ -13,15 +13,6 @@ TABLE(parcella) {
   note : TEXT
 }
 
-TABLE(sessione_simulazione) {
-  id : BIGSERIAL <<PK>>
-  scenario : VARCHAR
-  time_scale : INTEGER
-  avviata_il : TIMESTAMPTZ
-  terminata_il : TIMESTAMPTZ
-  note : TEXT
-}
-
 TABLE(nodo_sensore) {
   id : BIGSERIAL <<PK>>
   codice : VARCHAR <<UNIQUE>>
@@ -52,6 +43,12 @@ TABLE(regola_soglia) {
   note : TEXT
 }
 
+TABLE(soglia_incubazione_goidanich) {
+  temperatura_media : INTEGER <<PK>>
+  umidita_alta : BOOLEAN <<PK>>
+  percentuale_incremento_giornaliero : DOUBLE
+}
+
 TABLE(azione_mitigazione) {
   codice : VARCHAR <<PK>>
   descrizione : TEXT
@@ -68,7 +65,6 @@ TABLE(regola_azione) {
 TABLE(misurazione) {
   id : BIGSERIAL <<PK>>
   nodo_id : BIGINT <<FK>>
-  sessione_id : BIGINT <<FK>>
   parametro : VARCHAR
   valore : DOUBLE
   unita_misura : VARCHAR
@@ -82,7 +78,6 @@ TABLE(allerta) {
   livello_rischio : VARCHAR
   nodo_id : BIGINT <<FK>>
   parcella_id : BIGINT <<FK>>
-  sessione_id : BIGINT <<FK>>
   descrizione : TEXT
   regola_codice : VARCHAR <<FK>>
   generata_il : TIMESTAMPTZ
@@ -94,7 +89,6 @@ TABLE(allerta) {
 TABLE(trattamento) {
   id : BIGSERIAL <<PK>>
   allerta_id : BIGINT <<FK>>
-  sessione_id : BIGINT <<FK>>
   tipo_azione : VARCHAR <<FK>>
   eseguito_il : TIMESTAMPTZ
   esito : VARCHAR
@@ -111,8 +105,5 @@ allerta "1" -- "0..*" trattamento : innesca
 regola "1" -- "0..*" regola_azione : ammette
 azione_mitigazione "1" -- "0..*" regola_azione : è ammessa da
 azione_mitigazione "1" -- "0..*" trattamento : sceglie
-sessione_simulazione "1" -- "0..*" misurazione : raccoglie
-sessione_simulazione "1" -- "0..*" allerta : raccoglie
-sessione_simulazione "1" -- "0..*" trattamento : raccoglie
 
 @enduml

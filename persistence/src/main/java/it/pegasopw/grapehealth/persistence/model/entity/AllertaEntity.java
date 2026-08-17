@@ -26,14 +26,20 @@ public class AllertaEntity {
     @Column(name = "nodo_id")
     private Long nodoId;
 
+    @Column(name = "parcella_id")
+    private Long parcellaId;
+
     @Column(nullable = false)
     private String descrizione;
 
-    @Column(name = "regola_scatenante", nullable = false)
-    private String regolaScatenante;
+    @Column(name = "regola_codice", nullable = false)
+    private String regolaCodice;
 
     @Column(name = "generata_il", nullable = false)
     private Instant generataIl;
+
+    @Column(name = "risoluzione_pianificata_il")
+    private Instant risoluzionePianificataIl;
 
     @Column(name = "risolta_il")
     private Instant risoltaIl;
@@ -44,25 +50,28 @@ public class AllertaEntity {
     public AllertaEntity() {
     }
 
-    public AllertaEntity(String tipo, String livelloRischio, Long nodoId, String descrizione,
-                         String regolaScatenante, Instant generataIl) {
+    public AllertaEntity(String tipo, String livelloRischio, Long nodoId, Long parcellaId,
+                         String descrizione, String regolaCodice, Instant generataIl) {
         this.tipo = tipo;
         this.livelloRischio = livelloRischio;
         this.nodoId = nodoId;
+        this.parcellaId = parcellaId;
         this.descrizione = descrizione;
-        this.regolaScatenante = regolaScatenante;
+        this.regolaCodice = regolaCodice;
         this.generataIl = generataIl;
     }
 
-    // L'allerta viene marcata risolta con un ritardo REALE (non simulato)
-    // rispetto alla scrittura del trattamento, pianificato e applicato da
-    // SchedulerRisoluzioneAllerte: la scrittura originaria, che risolveva
-    // l'allerta nello stesso istante/nella stessa transazione del trattamento,
-    // rendeva la finestra "attiva" invisibile a un endpoint di monitoraggio
-    // in tempo reale come AllerteService/RaccomandazioniService del modulo api.
+    // Chiamato da SchedulerRisoluzioneAllerte subito dopo aver pianificato
+    // la risoluzione: persiste la scadenza, così da poterla recuperare a un
+    // eventuale riavvio del processo.
+    public void pianificaRisoluzione(Instant risoluzionePianificataIl) {
+        this.risoluzionePianificataIl = risoluzionePianificataIl;
+    }
+
     public void risolvi(Instant risoltaIl) {
         this.stato = "risolta";
         this.risoltaIl = risoltaIl;
+        this.risoluzionePianificataIl = null; // non più pendente
     }
 
     public Long getId() {
@@ -81,16 +90,24 @@ public class AllertaEntity {
         return nodoId;
     }
 
+    public Long getParcellaId() {
+        return parcellaId;
+    }
+
     public String getDescrizione() {
         return descrizione;
     }
 
-    public String getRegolaScatenante() {
-        return regolaScatenante;
+    public String getRegolaCodice() {
+        return regolaCodice;
     }
 
     public Instant getGenerataIl() {
         return generataIl;
+    }
+
+    public Instant getRisoluzionePianificataIl() {
+        return risoluzionePianificataIl;
     }
 
     public Instant getRisoltaIl() {

@@ -24,13 +24,20 @@ public class RaccomandazioneController {
     }
 
     @GetMapping
-    @Operation(summary = "Raccomandazioni per una singola allerta o per tutte le allerte attive",
-            description = "Se 'allertaId' e' specificato restituisce la raccomandazione per quella allerta; altrimenti l'elenco per tutte le allerte attualmente attive.")
+    @Operation(summary = "Raccomandazioni per una singola allerta, per un insieme di allerte, o per tutte le allerte attive",
+            description = "Se 'allertaId' e' specificato restituisce la raccomandazione per quella allerta (404 se non esiste). " +
+                    "Se 'allertaIds' e' specificato (parametro ripetuto) restituisce le raccomandazioni per l'insieme richiesto, " +
+                    "ignorando silenziosamente gli id non trovati. Se nessuno dei due e' specificato, restituisce l'elenco per tutte le allerte attualmente attive.")
     public List<RaccomandazioneDTO> cerca(
-            @Parameter(description = "Id dell'allerta specifica. Se omesso, restituisce le raccomandazioni per tutte le allerte attive")
-            @RequestParam(required = false) Long allertaId) {
+            @Parameter(description = "Id di una singola allerta. Se omesso, vedi 'allertaIds'")
+            @RequestParam(required = false) Long allertaId,
+            @Parameter(description = "Elenco di id di allerta (?allertaIds=1&allertaIds=2&...). Recupera in una sola chiamata le raccomandazioni per un insieme gia' noto (es. le ultime N risolte), evitando una richiesta per ciascuna.")
+            @RequestParam(required = false) List<Long> allertaIds) {
         if (allertaId != null) {
             return List.of(raccomandazioniService.perAllerta(allertaId));
+        }
+        if (allertaIds != null && !allertaIds.isEmpty()) {
+            return raccomandazioniService.perAllerteMultiple(allertaIds);
         }
         return raccomandazioniService.perAllerteAttive();
     }

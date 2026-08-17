@@ -4,6 +4,7 @@ import it.pegasopw.grapehealth.persistence.model.evento.AllertaEvent;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
+import java.util.Locale;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -52,5 +53,19 @@ class MappatoreAzioneTest {
         assertTrue(note.contains("severo"));
         assertTrue(note.contains("parametro-test"));
         assertTrue(note.contains("messaggio di test"));
+    }
+    
+    @Test
+    void valoreOsservatoUsaSempreIlPuntoComeSeparatoreDecimaleAPrescindereDalLocaleDiDefault() {
+        Locale localeOriginale = Locale.getDefault();
+        try {
+            Locale.setDefault(Locale.ITALY);
+            String note = mappatore.note(evento("stress_idrico", "severo"));
+
+            assertTrue(note.contains("valoreOsservato=-1.30"),
+                    "atteso il punto come separatore decimale anche con Locale.ITALY come default: " + note);
+        } finally {
+            Locale.setDefault(localeOriginale);
+        }
     }
 }

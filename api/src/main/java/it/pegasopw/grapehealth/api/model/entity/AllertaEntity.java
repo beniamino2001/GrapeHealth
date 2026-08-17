@@ -22,15 +22,21 @@ public class AllertaEntity {
 
     @Column(name = "nodo_id")
     private Long nodoId;
+    
+    @Column(name = "parcella_id")
+    private Long parcellaId;
 
     @Column(nullable = false)
     private String descrizione;
 
-    @Column(name = "regola_scatenante", nullable = false)
-    private String regolaScatenante;
+    @Column(name = "regola_codice", nullable = false)
+    private String regolaCodice;
 
     @Column(name = "generata_il", nullable = false)
     private Instant generataIl;
+
+    @Column(name = "risoluzione_pianificata_il")
+    private Instant risoluzionePianificataIl;
 
     @Column(name = "risolta_il")
     private Instant risoltaIl;
@@ -42,9 +48,11 @@ public class AllertaEntity {
     public String getTipo() { return tipo; }
     public String getLivelloRischio() { return livelloRischio; }
     public Long getNodoId() { return nodoId; }
+    public Long getParcellaId() { return parcellaId; }
     public String getDescrizione() { return descrizione; }
-    public String getRegolaScatenante() { return regolaScatenante; }
+    public String getRegolaCodice() { return regolaCodice; }
     public Instant getGenerataIl() { return generataIl; }
+    public Instant getRisoluzionePianificataIl() { return risoluzionePianificataIl; }
     public Instant getRisoltaIl() { return risoltaIl; }
     public String getStato() { return stato; }
 }

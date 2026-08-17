@@ -5,6 +5,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -27,5 +28,14 @@ public class GlobalExceptionHandler {
                 HttpStatus.INTERNAL_SERVER_ERROR.value(), "Errore interno",
                 "Si e' verificato un errore imprevisto durante l'elaborazione della richiesta.",
                 request.getRequestURI()));
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ErroreResponse> gestisciParametroMalformato(MethodArgumentTypeMismatchException ex, HttpServletRequest request) {
+        String tipoAtteso = ex.getRequiredType() != null ? ex.getRequiredType().getSimpleName() : "sconosciuto";
+        String messaggio = "Il parametro '%s' non e' nel formato atteso (%s): valore ricevuto '%s'."
+                .formatted(ex.getName(), tipoAtteso, ex.getValue());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ErroreResponse.of(
+                HttpStatus.BAD_REQUEST.value(), "Parametri non validi", messaggio, request.getRequestURI()));
     }
 }

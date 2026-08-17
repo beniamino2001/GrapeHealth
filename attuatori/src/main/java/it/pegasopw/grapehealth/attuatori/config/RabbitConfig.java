@@ -12,14 +12,41 @@ public class RabbitConfig {
     public static final String INPUT_QUEUE = "grapehealth.attuatori.input";
     public static final String INPUT_ROUTING_KEY = "allerta.#";
 
+    // Senza una coda di dead-letter, un tipo di allerta non riconosciuto da
+    // SimulatoreAttuazione (IllegalArgumentException) verrebbe reinviato
+    // indefinitamente dal comportamento di default di Spring AMQP.
+    public static final String DEAD_LETTER_EXCHANGE = "grapehealth.dlx";
+    public static final String INPUT_DLQ = "grapehealth.attuatori.input.dlq";
+    public static final String INPUT_DLQ_ROUTING_KEY = "attuatori.input.dead";
+
     @Bean
     public TopicExchange allertaExchange() {
         return new TopicExchange(ALERT_EXCHANGE, true, false);
     }
 
     @Bean
+    public DirectExchange deadLetterExchange() {
+        return new DirectExchange(DEAD_LETTER_EXCHANGE, true, false);
+    }
+
+    @Bean
+    public Queue inputDeadLetterQueue() {
+        return QueueBuilder.durable(INPUT_DLQ).build();
+    }
+
+    @Bean
+    public Binding inputDeadLetterBinding(Queue inputDeadLetterQueue, DirectExchange deadLetterExchange) {
+        return BindingBuilder.bind(inputDeadLetterQueue)
+                .to(deadLetterExchange)
+                .with(INPUT_DLQ_ROUTING_KEY);
+    }
+
+    @Bean
     public Queue inputQueue() {
-        return QueueBuilder.durable(INPUT_QUEUE).build();
+        return QueueBuilder.durable(INPUT_QUEUE)
+                .withArgument("x-dead-letter-exchange", DEAD_LETTER_EXCHANGE)
+                .withArgument("x-dead-letter-routing-key", INPUT_DLQ_ROUTING_KEY)
+                .build();
     }
 
     @Bean

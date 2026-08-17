@@ -17,7 +17,6 @@ class CacheNodiTest {
         NodoSensoreEntity entity = new NodoSensoreEntity();
         entity.setId(id);
         entity.setCodice(codice);
-        entity.setParcella("parcellaA");
         entity.setTipoNodo("idrico");
         return entity;
     }

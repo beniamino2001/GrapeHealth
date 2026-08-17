@@ -35,14 +35,21 @@ class SimulatoreAttuazioneTest {
     }
 
     @Test
-    void treDieciAttivaTrattamentoFitosanitario() {
+    void treDieciModeratoAttivaTrattamentoFitosanitarioMirato() {
         assertEquals("trattamento fitosanitario mirato", simulatore.determinaAzione(evento("tre_dieci")));
+    }
+
+    @Test
+    void treDieciSeveroAttivaTrattamentoFitosanitarioUrgente() {
+        assertEquals("trattamento fitosanitario urgente",
+                simulatore.determinaAzione(eventoConLivello("tre_dieci", "severo")));
     }
 
     @Test
     void tipoSconosciutoLanciaEccezione() {
         assertThrows(IllegalArgumentException.class, () -> simulatore.determinaAzione(evento("tipo_inesistente")));
     }
+
     @Test
     void stressIdricoModeratoAttivaIrrigazioneSemplice() {
         assertEquals("irrigazione di soccorso",

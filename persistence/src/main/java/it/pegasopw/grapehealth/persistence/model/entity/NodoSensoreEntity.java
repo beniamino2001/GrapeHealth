@@ -15,9 +15,6 @@ public class NodoSensoreEntity {
     @Column(nullable = false, unique = true)
     private String codice;
 
-    @Column(nullable = false)
-    private String parcella;
-
     @Column(name = "tipo_nodo", nullable = false)
     private String tipoNodo;
 
@@ -35,14 +32,6 @@ public class NodoSensoreEntity {
 
     public void setCodice(String codice) {
         this.codice = codice;
-    }
-
-    public String getParcella() {
-        return parcella;
-    }
-
-    public void setParcella(String parcella) {
-        this.parcella = parcella;
     }
 
     public String getTipoNodo() {

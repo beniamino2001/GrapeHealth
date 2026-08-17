@@ -1,15 +1,16 @@
 -- GrapeHealth: schema DB
+--
 
 -- =====================================================================
 -- Anagrafica agronomica
 -- =====================================================================
 
--- Prima: "parcella" era una VARCHAR libera duplicata su ogni riga di nodo_sensore,
+-- Prima "parcella" era una VARCHAR libera duplicata su ogni riga di nodo_sensore,
 -- senza alcun posto dove tenere gli attributi della parcella stessa. In particolare
 -- la lunghezza del germoglio richiesta dalla regola dei "tre dieci" era hardcoded
--- in una Map<String,Double> nel codice Java del backend (decisionengine) [RegolaTreDieci]:
+-- in una Map<String,Double> nel codice Java del decision engine (RegolaTreDieci):
 -- un dato agronomico rilevato manualmente a sopralluogo, non da un sensore, ma comunque
--- rientrante nel dominio dei dati che ha senso vivere nel database, non memorizzato in Java.
+-- un'informazione che ha senso che viva nel database, non hardcoded in Java.
 CREATE TABLE parcella (
     id                       BIGSERIAL PRIMARY KEY,
     nome                     VARCHAR(64) NOT NULL UNIQUE,               -- es. "parcellaA"
@@ -24,24 +25,6 @@ CREATE TABLE parcella (
 );
 
 -- =====================================================================
--- Tracciamento delle sessioni sperimentali
--- =====================================================================
-
--- In assenza di una logica di distinzione fra run, i dati di esecuzioni sperimentali diverse si
--- accumulano indistintamente nelle stesse tabelle. Questa tabella dà
--- un'identità a ogni run del simulatore, permettendo di filtrare/ripulire i dati
--- di una singola sessione senza dover svuotare l'intero database.
-CREATE TABLE sessione_simulazione (
-    id              BIGSERIAL PRIMARY KEY,
-    scenario        VARCHAR(32) NOT NULL
-                        CHECK (scenario IN ('normale', 'stress_idrico', 'ondata_di_calore')),
-    time_scale      INTEGER NOT NULL DEFAULT 1,
-    avviata_il      TIMESTAMPTZ NOT NULL DEFAULT now(),
-    terminata_il    TIMESTAMPTZ,
-    note            TEXT
-);
-
--- =====================================================================
 -- Rete di sensori
 -- =====================================================================
 
@@ -49,8 +32,8 @@ CREATE TABLE nodo_sensore (
     id                  BIGSERIAL PRIMARY KEY,
     codice              VARCHAR(64) NOT NULL UNIQUE,       -- es. "meteo-A1"
     parcella_id         BIGINT NOT NULL REFERENCES parcella(id),
-    -- Prima: VARCHAR(32) libera, senza vincolo di dominio. Il CHECK rende esplicito e 
-    -- verificabile a livello di database l'insieme dei tre tipi di nodo effettivamente usati dal sistema.
+    -- Il CHECK rende esplicito e verificabile a livello di database
+    -- l'insieme dei tre tipi di nodo effettivamente usati dal sistema.
     tipo_nodo           VARCHAR(16) NOT NULL
                             CHECK (tipo_nodo IN ('meteo', 'idrico', 'bacca')),
     latitudine          DOUBLE PRECISION,
@@ -64,11 +47,10 @@ CREATE TABLE nodo_sensore (
 -- =====================================================================
 
 -- Le quattro regole del decision engine (stress idrico, ondata di calore, "tre dieci",
--- sunburn) adesso vivono nel database considerando che ognuna di esse ha soglie con fonte bibliografica esplicita. 
--- La colonna "regola_scatenante" dello schema precedente veniva valorizzata da AllertaPersistenceListener 
--- con lo stesso valore della colonna "tipo" (entrambe popolate da evento.tipo()), quindi erano nella pratica sempre identiche.
+-- sunburn) hanno soglie con fonte bibliografica esplicita: dal database non era in alcun modo consultabile o verificabile.
 -- Qui "regola_codice" diventa una vera FK verso un catalogo di regole, eliminando la
--- ridondanza e rendendo possibile risalire, a partire da un'allerta, alla soglia esatta e alla fonte bibliografica che l'hanno generata.
+-- ridondanza e rendendo possibile risalire, a partire da un'allerta, alla soglia esatta
+-- e alla fonte bibliografica che l'hanno generata.
 CREATE TABLE regola (
     codice               VARCHAR(64) PRIMARY KEY,   -- "stress_idrico" | "ondata_di_calore" | "tre_dieci" | "sunburn"
     tipo_allerta         VARCHAR(32) NOT NULL,
@@ -100,12 +82,23 @@ CREATE TABLE regola_soglia (
 -- Catalogo delle azioni di mitigazione
 -- =====================================================================
 
--- Nello schema precedente trattamento.tipo_azione era vincolata da un CHECK con soli tre codici
--- (irrigazione_soccorso, nebulizzazione, trattamento_fitosanitario. La
--- bibliografia sul monitoraggio climatico però documenta strategie di mitigazione
--- del sunburn più mirate (caolino, reti ombreggianti, zeoliti), ciascuna con
--- fonte specifica. Questa tabella le cataloga; trattamento.tipo_azione diventa
--- una vera FK verso questo catalogo invece di un CHECK statico.
+-- =====================================================================
+-- Tabella di incubazione di Goidanich (peronospora)
+-- =====================================================================
+
+-- Percentuale giornaliera di sviluppo dell'incubazione della peronospora, in
+-- funzione di temperatura media (14-26°C, gradi interi, nessuna interpolazione
+-- fra righe) e livello di umidità relativa (soglia >=90% = "alta"), secondo la
+-- tabella di Goidanich (1964) riportata in Pertot, I. et al. (2007).
+CREATE TABLE soglia_incubazione_goidanich (
+    temperatura_media                  INTEGER NOT NULL
+                                           CHECK (temperatura_media BETWEEN 14 AND 26),
+    umidita_alta                       BOOLEAN NOT NULL,
+    percentuale_incremento_giornaliero DOUBLE PRECISION NOT NULL
+                                           CHECK (percentuale_incremento_giornaliero > 0),
+    PRIMARY KEY (temperatura_media, umidita_alta)
+);
+
 CREATE TABLE azione_mitigazione (
     codice               VARCHAR(32) PRIMARY KEY,
     descrizione          TEXT NOT NULL,
@@ -113,7 +106,9 @@ CREATE TABLE azione_mitigazione (
 );
 
 -- Quali azioni sono documentate come applicabili a quale regola, con eventuale
--- nota, infatti una regola può avere più azioni possibili (es. sunburn).
+-- nota. Una regola può avere più azioni possibili (es. sunburn); MappatoreAzione
+-- oggi ne implementa comunque una sola per regola. Questa tabella documenta lo 
+-- spazio di scelta disponibile in letteratura, non lo pilota a runtime.
 CREATE TABLE regola_azione (
     id             BIGSERIAL PRIMARY KEY,
     regola_codice  VARCHAR(64) NOT NULL REFERENCES regola(codice),
@@ -128,10 +123,7 @@ CREATE TABLE regola_azione (
 CREATE TABLE misurazione (
     id              BIGSERIAL PRIMARY KEY,
     nodo_id         BIGINT NOT NULL REFERENCES nodo_sensore(id),
-    sessione_id     BIGINT REFERENCES sessione_simulazione(id),
-    -- CHECK sui sei parametri realmente pubblicati da sensors-simulator/simulator/generator.py
-    -- (stesso principio già applicato a tipo_nodo): un settimo valore non previsto qui
-    -- segnala un simulatore disallineato dallo schema, non un caso legittimo da accettare.
+    -- CHECK sui sei parametri realmente pubblicati da sensors-simulator/simulator/generator.py.
     parametro       VARCHAR(32) NOT NULL
                         CHECK (parametro IN ('temperatura_aria', 'umidita_aria', 'pioggia',
                                               'bagnatura_fogliare', 'psi_stem', 'temperatura_bacca')),
@@ -143,7 +135,6 @@ CREATE TABLE misurazione (
 
 CREATE INDEX idx_misurazione_nodo_tempo ON misurazione (nodo_id, rilevato_il DESC);
 CREATE INDEX idx_misurazione_parametro ON misurazione (parametro, rilevato_il DESC);
-CREATE INDEX idx_misurazione_sessione ON misurazione (sessione_id);
 
 CREATE TABLE allerta (
     id                  BIGSERIAL PRIMARY KEY,
@@ -151,23 +142,17 @@ CREATE TABLE allerta (
     livello_rischio     VARCHAR(16) NOT NULL
                             CHECK (livello_rischio IN ('moderato', 'severo')),
     nodo_id             BIGINT REFERENCES nodo_sensore(id),
-    -- La regola "tre dieci" valutava il rischio per PARCELLA,
-    -- ma l'unico riferimento persistito era nodo_id del nodo fisico "meteo" usato come
-    -- proxy, per mancanza di un riferimento diretto alla parcella. Questa colonna dà
-    -- alla regola "tre dieci" (e a qualunque futura regola a livello di parcella) un
+    -- Questa colonna dà alla regola "tre dieci" (e a qualunque futura regola a livello di parcella) un
     -- riferimento esplicito, senza dover passare da un nodo specifico.
     parcella_id         BIGINT REFERENCES parcella(id),
-    sessione_id         BIGINT REFERENCES sessione_simulazione(id),
     descrizione         TEXT NOT NULL,
     regola_codice       VARCHAR(64) NOT NULL REFERENCES regola(codice),
     generata_il         TIMESTAMPTZ NOT NULL DEFAULT now(),
-    -- Le pianificazioni di SchedulerRisoluzioneAllerte vivevano solo in memoria (tempo attuale,
-    -- non quello simulato), quindi un riavvio del processo persistence mentre
-    -- un'allerta è in attesa di risoluzione faceva perdere quella pianificazione,
-    -- lasciando l'allerta "attiva" a tempo indeterminato. Questa colonna, nullable,
-    -- permetterà allo scheduler di ricostruire all'avvio le pianificazioni pendenti 
-    -- leggendo dal database invece che perderle: query attesa "SELECT id, risoluzione_pianificata_il 
-    -- FROM allerta WHERE stato = 'attiva' AND risoluzione_pianificata_il IS NOT NULL".
+    -- Questa colonna, nullable, è oggi effettivamente scritta e riletta all'avvio da SchedulerRisoluzioneAllerte
+    -- (modulo persistence): permette allo scheduler di ricostruire all'avvio le
+    -- pianificazioni pendenti leggendo dal database invece che perderle. Query
+    -- attesa "SELECT id, risoluzione_pianificata_il FROM allerta WHERE stato =
+    -- 'attiva' AND risoluzione_pianificata_il IS NOT NULL".
     risoluzione_pianificata_il TIMESTAMPTZ,
     risolta_il          TIMESTAMPTZ,
     stato               VARCHAR(16) NOT NULL DEFAULT 'attiva'
@@ -175,17 +160,9 @@ CREATE TABLE allerta (
 );
 
 CREATE INDEX idx_allerta_stato ON allerta (stato, generata_il DESC);
-CREATE INDEX idx_allerta_sessione ON allerta (sessione_id);
-
 CREATE TABLE trattamento (
     id              BIGSERIAL PRIMARY KEY,
-    -- Un trattamento esiste sempre in risposta a un'allerta: AllertaPersistenceListener costruisce TrattamentoEntity 
-    -- subito dopo aver salvato l'allerta, sempre con il suo id — nessun percorso di codice lo lascia vuoto.
     allerta_id      BIGINT NOT NULL REFERENCES allerta(id),
-    sessione_id     BIGINT REFERENCES sessione_simulazione(id),
-    -- FK verso il catalogo azione_mitigazione. MappatoreAzione sceglie quale azione applicare in base alla regola e al livello di rischio, 
-    -- ma non è detto che la scelta sia unica: una regola può avere più azioni possibili (es. sunburn). La colonna tipo_azione qui rappresenta
-    -- l'azione effettivamente scelta e applicata.
     tipo_azione     VARCHAR(32) NOT NULL REFERENCES azione_mitigazione(codice),
     eseguito_il     TIMESTAMPTZ NOT NULL DEFAULT now(),
     esito           VARCHAR(16) NOT NULL DEFAULT 'simulato',
@@ -202,7 +179,27 @@ INSERT INTO parcella (nome, varieta, colore_bacca, lunghezza_germoglio_cm, germo
     ('parcellaC', 'Trebbiano',     'bianco', 10, CURRENT_DATE, 41.1204, 16.8639);
 
 -- =====================================================================
--- Seed: catalogo regole e soglie, con fonte bibliografica
+-- Seed: tabella di incubazione di Goidanich
+-- =====================================================================
+
+-- Valori identici, riga per riga, a TABELLA in TabellaGoidanich.java (modulo backend/decisionengine).
+INSERT INTO soglia_incubazione_goidanich (temperatura_media, umidita_alta, percentuale_incremento_giornaliero) VALUES
+    (14, FALSE, 6.6),  (14, TRUE, 9.0),
+    (15, FALSE, 7.6),  (15, TRUE, 10.5),
+    (16, FALSE, 8.6),  (16, TRUE, 11.7),
+    (17, FALSE, 10.0), (17, TRUE, 13.3),
+    (18, FALSE, 11.1), (18, TRUE, 13.3),
+    (19, FALSE, 12.5), (19, TRUE, 16.6),
+    (20, FALSE, 14.2), (20, TRUE, 20.0),
+    (21, FALSE, 15.3), (21, TRUE, 22.2),
+    (22, FALSE, 16.6), (22, TRUE, 22.2),
+    (23, FALSE, 18.1), (23, TRUE, 25.0),
+    (24, FALSE, 18.1), (24, TRUE, 25.0),
+    (25, FALSE, 16.6), (25, TRUE, 22.2),
+    (26, FALSE, 16.6), (26, TRUE, 22.2);
+
+-- =====================================================================
+-- Seed: catalogo regole e soglie, con fonte bibliografica (v. Fase 3 §7 e bibliografia)
 -- =====================================================================
 
 INSERT INTO regola (codice, tipo_allerta, descrizione, fonte_bibliografica) VALUES
@@ -220,11 +217,11 @@ INSERT INTO regola (codice, tipo_allerta, descrizione, fonte_bibliografica) VALU
         'Gambetta et al., 2021; Schmidt et al., 2023');
 
 INSERT INTO regola_soglia (regola_codice, parametro, livello_rischio, operatore, valore_soglia, unita_misura, durata_minima_minuti, note) VALUES
-    -- Stress idrico: due soglie, isteresi di 0.05 MPa applicata a runtime
+    -- Stress idrico: due soglie, isteresi di 0.05 MPa applicata a runtime (non rappresentata qui)
     ('stress_idrico', 'psi_stem', 'moderato', '<', -1.2, 'MPa', NULL, 'Isteresi di uscita 0.05 MPa applicata a runtime'),
     ('stress_idrico', 'psi_stem', 'severo',   '<', -1.4, 'MPa', NULL, 'Isteresi di uscita 0.05 MPa applicata a runtime'),
 
-    -- Ondata di calore: soglia singola, nessun "severo"
+    -- Ondata di calore: soglia singola, nessun "severo" supportato dalla bibliografia consultata
     ('ondata_di_calore', 'temperatura_aria', 'moderato', '>', 35.0, '°C', NULL, 'Isteresi di uscita 1°C applicata a runtime'),
 
     -- Tre dieci: tre condizioni simultanee, unico livello di rischio (moderato)
@@ -247,7 +244,6 @@ INSERT INTO azione_mitigazione (codice, descrizione, fonte_bibliografica) VALUES
     ('irrigazione_soccorso', 'Irrigazione di soccorso in risposta a stress idrico', NULL),
     ('nebulizzazione', 'Raffrescamento per nebulizzazione della chioma/bacca', NULL),
     ('trattamento_fitosanitario', 'Trattamento fitosanitario mirato (peronospora)', NULL),
-    -- Ampliamento della mitigazione del sunburn: tre strategie distinte dalla nebulizzazione, ciascuna con fonte bibliografica diretta.
     ('applicazione_caolino', 'Film di particelle di caolino sulla bacca, effetto schermante/riflettente',
         'Agriculture 12(4)491; Horticulturae 11(2)110; Horticulturae 12(5)554; Scientia Horticulturae 111595'),
     ('rete_ombreggiante', 'Rete ombreggiante al 30-70% sulla fascia produttiva',
@@ -260,7 +256,6 @@ INSERT INTO regola_azione (regola_codice, azione_codice, note) VALUES
     ('tre_dieci', 'trattamento_fitosanitario', NULL),
     ('ondata_di_calore', 'nebulizzazione',
         'Sistema di nebulizzazione automatico attivato a 35°C su Sangiovese/Montepulciano, Valentini et al. 2024'),
-    -- Sunburn: quattro azioni documentate come applicabili.
     ('sunburn', 'nebulizzazione', 'Unica azione oggi effettivamente scelta da MappatoreAzione per questa regola'),
     ('sunburn', 'applicazione_caolino', 'Bacche fino a 6-7,6°C più fredde del controllo non trattato, Agriculture 12(4)491'),
     ('sunburn', 'rete_ombreggiante', 'Studiata in combinazione con il caolino negli stessi due studi'),

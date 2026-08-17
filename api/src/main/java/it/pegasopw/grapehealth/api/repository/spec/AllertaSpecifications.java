@@ -3,8 +3,6 @@ package it.pegasopw.grapehealth.api.repository.spec;
 import it.pegasopw.grapehealth.api.model.entity.AllertaEntity;
 import org.springframework.data.jpa.domain.Specification;
 
-import java.util.List;
-
 public final class AllertaSpecifications {
 
     private AllertaSpecifications() {
@@ -24,10 +22,10 @@ public final class AllertaSpecifications {
         return (root, query, cb) -> cb.equal(root.get("tipo"), tipo);
     }
 
-    public static Specification<AllertaEntity> nodoIdIn(List<Long> nodoIds) {
-        if (nodoIds == null || nodoIds.isEmpty()) {
+    public static Specification<AllertaEntity> parcellaId(Long parcellaId) {
+        if (parcellaId == null) {
             return (root, query, cb) -> cb.conjunction();
         }
-        return (root, query, cb) -> root.get("nodoId").in(nodoIds);
+        return (root, query, cb) -> cb.equal(root.get("parcellaId"), parcellaId);
     }
 }

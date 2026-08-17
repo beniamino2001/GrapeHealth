@@ -1,39 +1,34 @@
 package it.pegasopw.grapehealth.api.service.support;
 
-import it.pegasopw.grapehealth.api.model.entity.NodoSensoreEntity;
-import it.pegasopw.grapehealth.api.repository.NodoSensoreRepository;
+import it.pegasopw.grapehealth.api.cache.CacheNodi;
+import it.pegasopw.grapehealth.api.cache.CacheParcelle;
 import org.springframework.stereotype.Component;
 
-import java.util.Collection;
 import java.util.List;
-import java.util.Map;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
 @Component
 public class NodoResolver {
 
-    private final NodoSensoreRepository nodoSensoreRepository;
+    private final CacheParcelle cacheParcelle;
+    private final CacheNodi cacheNodi;
 
-    public NodoResolver(NodoSensoreRepository nodoSensoreRepository) {
-        this.nodoSensoreRepository = nodoSensoreRepository;
+    public NodoResolver(CacheParcelle cacheParcelle, CacheNodi cacheNodi) {
+        this.cacheParcelle = cacheParcelle;
+        this.cacheNodi = cacheNodi;
     }
 
     /**
-     * Restituisce null se la parcella non è stata specificata (nessun filtro da
-     * applicare) e una lista vuota se la parcella non esiste (nessun risultato).
+     * Nessuna query al database: entrambe le cache sono caricate una 
+     * sola volta all'avvio, la risoluzione è pura composizione in memoria.
      */
-    public List<Long> idsPerParcella(String parcella) {
-        if (parcella == null || parcella.isBlank()) {
+    public List<Long> nodoIdsPerParcella(String nomeParcella) {
+        if (nomeParcella == null || nomeParcella.isBlank()) {
             return null;
         }
-        return nodoSensoreRepository.findByParcella(parcella).stream()
-                .map(NodoSensoreEntity::getId)
-                .toList();
-    }
-
-    public Map<Long, NodoSensoreEntity> caricaPerId(Collection<Long> nodoIds) {
-        return nodoSensoreRepository.findAllById(nodoIds).stream()
-                .collect(Collectors.toMap(NodoSensoreEntity::getId, Function.identity()));
+        Long parcellaId = cacheParcelle.idPerNome(nomeParcella);
+        if (parcellaId == null) {
+            return List.of();
+        }
+        return cacheNodi.nodoIdsPerParcella(parcellaId);
     }
 }

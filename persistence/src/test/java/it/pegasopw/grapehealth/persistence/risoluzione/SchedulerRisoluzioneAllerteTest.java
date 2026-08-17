@@ -33,33 +33,68 @@ class SchedulerRisoluzioneAllerteTest {
                 .getId();
     }
 
+    private AllertaEntity nuovaAllertaDiTest(String descrizione) {
+        return allertaRepository.save(new AllertaEntity(
+                "stress_idrico", "moderato", unNodoIdValido(), null,
+                descrizione, "stress_idrico", Instant.now()));
+    }
+
     @Test
     @Transactional
     void risolveUnAllertaConScadenzaGiaSuperata() {
-        AllertaEntity allerta = allertaRepository.save(new AllertaEntity(
-                "stress_idrico", "moderato", unNodoIdValido(), "allerta di test scheduler",
-                "stress_idrico", Instant.now()));
+        AllertaEntity allerta = nuovaAllertaDiTest("allerta di test scheduler");
 
-        scheduler.pianificaAllaScadenza(allerta.getId(), Instant.now().minusSeconds(1));
+        scheduler.pianificaAllaScadenza(allerta, Instant.now().minusSeconds(1));
         scheduler.risolviScadute();
 
         AllertaEntity aggiornata = allertaRepository.findById(allerta.getId()).orElseThrow();
         assertEquals("risolta", aggiornata.getStato());
         assertNotNull(aggiornata.getRisoltaIl());
+        assertNull(aggiornata.getRisoluzionePianificataIl(), "non più pendente dopo la risoluzione");
     }
 
     @Test
     @Transactional
     void nonRisolveUnAllertaConScadenzaFutura() {
-        AllertaEntity allerta = allertaRepository.save(new AllertaEntity(
-                "stress_idrico", "moderato", unNodoIdValido(), "allerta di test scheduler futura",
-                "stress_idrico", Instant.now()));
+        AllertaEntity allerta = nuovaAllertaDiTest("allerta di test scheduler futura");
 
-        scheduler.pianificaAllaScadenza(allerta.getId(), Instant.now().plusSeconds(600));
+        scheduler.pianificaAllaScadenza(allerta, Instant.now().plusSeconds(600));
         scheduler.risolviScadute();
 
         AllertaEntity nonAggiornata = allertaRepository.findById(allerta.getId()).orElseThrow();
         assertEquals("attiva", nonAggiornata.getStato());
         assertNull(nonAggiornata.getRisoltaIl());
+    }
+
+    @Test
+    @Transactional
+    void pianificaAllaScadenzaPersisteLaScadenzaSullEntita() {
+        AllertaEntity allerta = nuovaAllertaDiTest("allerta di test persistenza scadenza");
+        Instant scadenza = Instant.now().plusSeconds(120);
+
+        scheduler.pianificaAllaScadenza(allerta, scadenza);
+
+        AllertaEntity ricaricata = allertaRepository.findById(allerta.getId()).orElseThrow();
+        assertEquals(scadenza, ricaricata.getRisoluzionePianificataIl());
+    }
+
+    @Test
+    @Transactional
+    void ricostruisceLePianificazioniPendentiAllAvvio() {
+        // Simula una scadenza già pianificata e persistita da una sessione
+        // precedente del processo (stato ancora "attiva"), senza passare da
+        // pianifica(...)/pianificaAllaScadenza(...) di QUESTA istanza dello
+        // scheduler, per non aggiungerla già alla sua mappa in memoria.
+        AllertaEntity allerta = nuovaAllertaDiTest("allerta pendente da sessione precedente");
+        Instant scadenzaGiaSuperata = Instant.now().minusSeconds(5);
+        allerta.pianificaRisoluzione(scadenzaGiaSuperata);
+        allertaRepository.save(allerta);
+
+        scheduler.ricostruisciAllAvvio();
+        scheduler.risolviScadute();
+
+        AllertaEntity aggiornata = allertaRepository.findById(allerta.getId()).orElseThrow();
+        assertEquals("risolta", aggiornata.getStato(),
+                "la pianificazione doveva essere ricostruita dal DB e poi risolta dallo sweep");
     }
 }

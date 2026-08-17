@@ -14,7 +14,7 @@ public class TrattamentoEntity {
     @Id
     private Long id;
 
-    @Column(name = "allerta_id")
+    @Column(name = "allerta_id", nullable = false)
     private Long allertaId;
 
     @Column(name = "tipo_azione", nullable = false)

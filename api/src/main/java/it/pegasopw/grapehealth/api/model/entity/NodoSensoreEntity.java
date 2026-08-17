@@ -16,9 +16,9 @@ public class NodoSensoreEntity {
 
     @Column(nullable = false, unique = true)
     private String codice;
-
-    @Column(nullable = false)
-    private String parcella;
+    
+    @Column(name = "parcella_id", nullable = false)
+    private Long parcellaId;
 
     @Column(name = "tipo_nodo", nullable = false)
     private String tipoNodo;
@@ -37,7 +37,7 @@ public class NodoSensoreEntity {
 
     public Long getId() { return id; }
     public String getCodice() { return codice; }
-    public String getParcella() { return parcella; }
+    public Long getParcellaId() { return parcellaId; }
     public String getTipoNodo() { return tipoNodo; }
     public Double getLatitudine() { return latitudine; }
     public Double getLongitudine() { return longitudine; }

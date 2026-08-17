@@ -2,6 +2,8 @@
 # Basta modificare qui scenario e velocità del tempo senza toccare il codice.
 
 mqtt:
+  # Cambiare questa chiave da sola instraderebbe silenziosamente ogni misurazione 
+  # verso il nulla, per questo valida_config() in main.py lo verifica all'avvio.
   topic_prefix: "grapehealth"
 
 simulazione:

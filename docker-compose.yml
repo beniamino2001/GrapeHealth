@@ -2,6 +2,7 @@ services:
 
   rabbitmq:
     image: rabbitmq:4.3-management
+    pull_policy: always
     container_name: grapehealth-rabbitmq
     hostname: grapehealth-rabbitmq
     ports:
@@ -21,6 +22,7 @@ services:
 
   postgres:
     image: postgres:18
+    pull_policy: always
     container_name: grapehealth-postgres
     ports:
       - "5432:5432"

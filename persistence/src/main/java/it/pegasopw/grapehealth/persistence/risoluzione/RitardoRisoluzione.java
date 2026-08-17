@@ -9,9 +9,9 @@ import java.time.Duration;
 // nella realta' agricola, ci si aspetterebbe di vedere risolto il rischio
 // segnalato da un'allerta dopo l'esecuzione del trattamento corrispondente.
 //
-// Quando il simulatore gira accelerato la finestra reale di attesa 
-// si accorcia proporzionalmente, fino al pavimento RITARDO_MINIMO sotto 
-// il quale la dashboard perderebbe la possibilita' di mostrare l'allerta 
+// Quando il simulatore gira accelerato la finestra reale di attesa
+// si accorcia proporzionalmente, fino al pavimento RITARDO_MINIMO sotto
+// il quale la dashboard perderebbe la possibilita' di mostrare l'allerta
 // come attiva anche solo per un istante percepibile.
 @Component
 public class RitardoRisoluzione {
@@ -46,15 +46,21 @@ public class RitardoRisoluzione {
     //   piu' tempo del moderato.
     // - sunburn/ondata_di_calore: la nebulizzazione raffredda la superficie
     //   della bacca/l'aria nel giro di decine di minuti.
-    // - tre_dieci: periodo di verifica/efficacia tipico di un trattamento
-    //   fitosanitario, dell'ordine di una giornata.
+    // - tre_dieci: qui il rapporto moderato/severo è INVERTITO rispetto agli
+    //   altri tre tipi. "Moderato" segnala l'infezione primaria appena rilevata 
+    //   (trigger di Baldacci): c'è tipicamente più margine prima di dover intervenire.
+    //   "Severo" segnala che l'incubazione secondo Goidanich ha raggiunto il 70%, 
+    //   cioè che la finestra di trattamento si sta chiudendo — più urgente, non meno, 
+    //   quindi un ritardo di risoluzione più BREVE. Le due durate restano comunque una
+    //   stima di ordine di grandezza, non legata a una fonte bibliografica
+    //   specifica per l'una o l'altra, come già il valore singolo precedente.
     private Duration ritardoBase(String tipo, String livelloRischio) {
         boolean severo = SEVERO.equals(livelloRischio);
         return switch (tipo) {
             case STRESS_IDRICO -> severo ? Duration.ofHours(4) : Duration.ofHours(2);
             case SUNBURN -> severo ? Duration.ofMinutes(40) : Duration.ofMinutes(20);
             case ONDATA_DI_CALORE -> Duration.ofMinutes(20);
-            case TRE_DIECI -> Duration.ofHours(24);
+            case TRE_DIECI -> severo ? Duration.ofHours(6) : Duration.ofHours(24);
             default -> throw new IllegalArgumentException(
                     "Tipo di allerta non gestito da RitardoRisoluzione: " + tipo);
         };

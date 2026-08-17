@@ -1,0 +1,8 @@
+{
+  "name": "grapehealth-load-test-helpers",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test helpers.test.js"
+  }
+}

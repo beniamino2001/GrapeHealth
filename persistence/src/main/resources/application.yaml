@@ -20,6 +20,21 @@ spring:
     username: ${RABBITMQ_USER}
     password: ${RABBITMQ_PASS}
     virtual-host: /
+    listener:
+      simple:
+        # Si applica solo al listener basato su @RabbitListener: tre tentativi 
+        # con backoff prima di rifiutare il messaggio, che a quel punto viene 
+        # dead-lettered dalla coda invece di essere reinviato all'infinito. Il
+        # retry ha senso qui perché un fallimento potrebbe essere transitorio
+        # (es. un deadlock momentaneo su PostgreSQL), non solo permanente come
+        # nel caso di un tipo di allerta non riconosciuto.
+        retry:
+          enabled: true
+          initial-interval: 500ms
+          multiplier: 2.0
+          max-interval: 5s
+          max-retries: 3
+        default-requeue-rejected: false
 
 logging:
   file:

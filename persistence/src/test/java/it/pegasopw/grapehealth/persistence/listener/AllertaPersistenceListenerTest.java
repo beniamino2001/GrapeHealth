@@ -22,6 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class AllertaPersistenceListenerTest {
 
     private static final String CODICE_NODO_DI_TEST = "idrico-A1";
+    private static final String NOME_PARCELLA_DI_TEST = "parcellaA";
 
     @Autowired
     private AllertaPersistenceListener listener;
@@ -33,7 +34,7 @@ class AllertaPersistenceListenerTest {
     private TrattamentoRepository trattamentoRepository;
 
     private AllertaEvent evento(String tipo, String livello) {
-        return new AllertaEvent(tipo, livello, CODICE_NODO_DI_TEST, "parcellaA",
+        return new AllertaEvent(tipo, livello, CODICE_NODO_DI_TEST, NOME_PARCELLA_DI_TEST,
                 "psi_stem", -1.35, "messaggio di test integrazione", Instant.now());
     }
 
@@ -52,9 +53,12 @@ class AllertaPersistenceListenerTest {
         AllertaEntity allertaSalvata = allerte.get(0);
         assertNotNull(allertaSalvata.getId());
         assertEquals("stress_idrico", allertaSalvata.getTipo());
+        assertEquals("stress_idrico", allertaSalvata.getRegolaCodice());
         assertEquals("severo", allertaSalvata.getLivelloRischio());
+        assertNotNull(allertaSalvata.getParcellaId(), "parcellaA deve risolvere a un id valido dal seed");
         assertEquals("attiva", allertaSalvata.getStato());
         assertNull(allertaSalvata.getRisoltaIl());
+        assertNotNull(allertaSalvata.getRisoluzionePianificataIl(), "la scadenza deve essere già pianificata e persistita");
 
         List<TrattamentoEntity> trattamenti = trattamentoRepository.findAll().stream()
                 .filter(t -> allertaSalvata.getId().equals(t.getAllertaId()))
@@ -74,11 +78,26 @@ class AllertaPersistenceListenerTest {
         long trattamentiIniziali = trattamentoRepository.count();
 
         AllertaEvent evento = new AllertaEvent("stress_idrico", "moderato", "nodo-inesistente-xyz",
-                "parcellaA", "psi_stem", -1.25, "non deve essere scritto", Instant.now());
+                NOME_PARCELLA_DI_TEST, "psi_stem", -1.25, "non deve essere scritto", Instant.now());
 
         listener.onAllerta(evento);
 
         assertEquals(allerteIniziali, allertaRepository.count());
         assertEquals(trattamentiIniziali, trattamentoRepository.count());
+    }
+
+    @Test
+    @Transactional
+    void parcellaSconosciutaNonBloccaLaScrittura() {
+        AllertaEvent evento = new AllertaEvent("stress_idrico", "moderato", CODICE_NODO_DI_TEST,
+                "parcella-inesistente-xyz", "psi_stem", -1.25, "test parcella sconosciuta", Instant.now());
+
+        listener.onAllerta(evento);
+
+        List<AllertaEntity> allerte = allertaRepository.findAll().stream()
+                .filter(a -> "test parcella sconosciuta".equals(a.getDescrizione()))
+                .toList();
+        assertEquals(1, allerte.size());
+        assertNull(allerte.get(0).getParcellaId());
     }
 }

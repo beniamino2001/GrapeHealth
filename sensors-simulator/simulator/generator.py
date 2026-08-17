@@ -23,6 +23,28 @@ class StatoParcella:
         self.pioggia_oggi_mm = 0.0
         self._ultimo_giorno = None
 
+    def esporta_stato(self) -> dict:
+        """Istantanea serializzabile in JSON dello stato fisico corrente,
+        da passare a salva_stato_sessione() in state.py."""
+        return {
+            "psi_stem": self.psi_stem,
+            "giorni_senza_pioggia": self.giorni_senza_pioggia,
+            "pioggia_oggi_mm": self.pioggia_oggi_mm,
+            "ultimo_giorno": self._ultimo_giorno,
+        }
+
+    def ripristina_stato(self, dati: dict) -> None:
+        """Inverso di esporta_stato(): usato all'avvio per riprendere da dove
+        una sessione precedente si era interrotta, invece di ripartire dalle
+        condizioni di default (-0.85 MPa, zero giorni senza pioggia, ...).
+        Lo scenario NON viene ripristinato: resta quello scelto per la
+        sessione corrente, per permettere di cambiare scenario fra una
+        sessione e l'altra pur continuando la stessa linea temporale."""
+        self.psi_stem = dati.get("psi_stem", self.psi_stem)
+        self.giorni_senza_pioggia = dati.get("giorni_senza_pioggia", self.giorni_senza_pioggia)
+        self.pioggia_oggi_mm = dati.get("pioggia_oggi_mm", self.pioggia_oggi_mm)
+        self._ultimo_giorno = dati.get("ultimo_giorno", self._ultimo_giorno)
+
     def aggiorna_se_nuovo_giorno(self, dt: datetime) -> None:
         giorno = dt.date().isoformat()
         if giorno == self._ultimo_giorno:
@@ -63,7 +85,7 @@ def genera_temp_aria(dt: datetime, scenario: str) -> float:
 
 
 def genera_umidita_aria(temp_aria: float, scenario: str) -> float:
-    valore = 75 - (temp_aria - 18) * 1.8
+    valore = 80 - (temp_aria - 18) * 1.8
     if scenario == "ondata_di_calore":
         valore -= 10
     valore = max(20, min(95, valore + random.uniform(-3, 3)))
@@ -83,6 +105,16 @@ def genera_bagnatura_fogliare(dt: datetime, pioggia_oggi_mm: float, umidita_aria
 
 
 def genera_temp_bacca(temp_aria: float, dt: datetime, colore_bacca: str, scenario: str) -> float:
+    """Con l'offset massimo differenziato per colore (14°C nero, 10°C bianco,
+    Gambetta et al. 2021) e il moltiplicatore ×1.3 in ondata di calore, il tetto
+    teorico di temperatura_bacca è ~55,1°C per bacca nera ma solo ~49,9°C per
+    bacca bianca (parcellaC/Trebbiano). La parcellaC può quindi raggiungere 
+    il livello "severo" di RegolaSunburn solo attraverso le soglie a esposizione più lunga 
+    (60/90 minuti, 47,82/47,06°C), mai attraverso quelle rapide. Le bacche scure arrivano fino 
+    a 5°C più calde delle bianche ma è un'asimmetria strutturale fra parcelle da conoscere prima
+    di interpretare l'assenza di un sunburn severo "rapido" sulla parcellaC come
+    un malfunzionamento.
+    """
     ora = dt.hour + dt.minute / 60
     # sovratemperatura concentrata nelle ore di massima esposizione solare
     fattore_esposizione = max(0.0, math.sin(2 * math.pi * (ora - 9) / 24))

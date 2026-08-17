@@ -1,8 +1,11 @@
 """
-Wrapper minimale su paho-mqtt: connessione con credenziali da .env,
-Last Will and Testament per nodo (utile in Fase 7 per dimostrare la
-resilienza in caso di caduta di un nodo), QoS 1 di default e
-riconnessione automatica gestita da paho stesso.
+Wrapper minimale su paho-mqtt: connessione con credenziali da .env, 
+QoS 1 di default e riconnessione automatica gestita da paho stesso.
+
+N.B.: un solo processo simulatore mantiene un'unica
+connessione MQTT condivisa da tutti i nodi di tutte le parcelle.
+Se il processo cade, tutti i nodi risultano "offline"
+nello stesso istante.
 """
 
 import os

@@ -1,10 +1,11 @@
 package it.pegasopw.grapehealth.api.service;
 
+import it.pegasopw.grapehealth.api.cache.CacheNodi;
+import it.pegasopw.grapehealth.api.cache.CacheParcelle;
 import it.pegasopw.grapehealth.api.exception.ParametriNonValidiException;
 import it.pegasopw.grapehealth.api.mapper.MisurazioneMapper;
 import it.pegasopw.grapehealth.api.model.dto.MisurazioneDTO;
 import it.pegasopw.grapehealth.api.model.entity.MisurazioneEntity;
-import it.pegasopw.grapehealth.api.model.entity.NodoSensoreEntity;
 import it.pegasopw.grapehealth.api.repository.MisurazioneRepository;
 import it.pegasopw.grapehealth.api.repository.spec.MisurazioneSpecifications;
 import it.pegasopw.grapehealth.api.service.support.NodoResolver;
@@ -16,7 +17,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.List;
-import java.util.Map;
 
 @Service
 @Transactional(readOnly = true)
@@ -24,10 +24,15 @@ public class StoricoMisurazioniService {
 
     private final MisurazioneRepository misurazioneRepository;
     private final NodoResolver nodoResolver;
+    private final CacheNodi cacheNodi;
+    private final CacheParcelle cacheParcelle;
 
-    public StoricoMisurazioniService(MisurazioneRepository misurazioneRepository, NodoResolver nodoResolver) {
+    public StoricoMisurazioniService(MisurazioneRepository misurazioneRepository, NodoResolver nodoResolver,
+                                     CacheNodi cacheNodi, CacheParcelle cacheParcelle) {
         this.misurazioneRepository = misurazioneRepository;
         this.nodoResolver = nodoResolver;
+        this.cacheNodi = cacheNodi;
+        this.cacheParcelle = cacheParcelle;
     }
 
     public Page<MisurazioneDTO> cerca(String parcella, String parametro, Instant dal, Instant al, Pageable pageable) {
@@ -35,7 +40,7 @@ public class StoricoMisurazioniService {
             throw new ParametriNonValidiException("Il parametro 'dal' non puo' essere successivo al parametro 'al'.");
         }
 
-        List<Long> nodoIds = nodoResolver.idsPerParcella(parcella);
+        List<Long> nodoIds = nodoResolver.nodoIdsPerParcella(parcella);
         if (nodoIds != null && nodoIds.isEmpty()) {
             return Page.empty(pageable);
         }
@@ -47,12 +52,6 @@ public class StoricoMisurazioniService {
 
         Page<MisurazioneEntity> pagina = misurazioneRepository.findAll(filtro, pageable);
 
-        List<Long> nodoIdsPagina = pagina.getContent().stream()
-                .map(MisurazioneEntity::getNodoId)
-                .distinct()
-                .toList();
-        Map<Long, NodoSensoreEntity> nodiPerId = nodoResolver.caricaPerId(nodoIdsPagina);
-
-        return pagina.map(entita -> MisurazioneMapper.toDTO(entita, nodiPerId));
+        return pagina.map(entita -> MisurazioneMapper.toDTO(entita, cacheNodi, cacheParcelle));
     }
 }

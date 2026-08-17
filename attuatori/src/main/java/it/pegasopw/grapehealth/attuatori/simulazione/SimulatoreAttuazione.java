@@ -25,27 +25,37 @@ public class SimulatoreAttuazione {
                     ? "irrigazione di soccorso d'emergenza"
                     : "irrigazione di soccorso";
 
+            // regola_azione cataloga per "sunburn" anche applicazione_caolino, rete_ombreggiante e
+            // applicazione_zeolite come strategie di mitigazione alternative alla nebulizzazione.
+            // Nessuna fonte bibliografica indica un criterio per scegliere tra loro:
+            // SimulatoreAttuazione continua a simulare solo la nebulizzazione, coerentemente con quanto
+            // MappatoreAzione fa in persistence per lo stesso motivo.
             case SUNBURN -> severo
                     ? "nebulizzazione anti-scottatura d'emergenza"
                     : "nebulizzazione anti-scottatura";
 
-            // ondata_di_calore e tre_dieci non prevedono un livello "severo" nel backend (decision engine)
+            // ondata_di_calore resta a soglia singola nel decision engine: nessun
+            // "severo" atteso, quindi la rete di sicurezza sotto resta attiva qui.
             case ONDATA_DI_CALORE -> {
                 avvisaSeSeveroInatteso(tipo, evento.livelloRischio());
                 yield "nebulizzazione anti-calore";
             }
-            case TRE_DIECI -> {
-                avvisaSeSeveroInatteso(tipo, evento.livelloRischio());
-                yield "trattamento fitosanitario mirato";
-            }
+
+            // tre_dieci prevede adesso due livelli: "moderato" segnala l'infezione
+            // primaria appena rilevata (trigger di Baldacci), "severo" segnala che
+            // l'incubazione ha raggiunto il 70% e la finestra di trattamento si sta
+            // chiudendo.
+            case TRE_DIECI -> severo
+                    ? "trattamento fitosanitario urgente"
+                    : "trattamento fitosanitario mirato";
 
             default -> throw new IllegalArgumentException(
                     "Tipo di allerta non gestito dal simulatore attuatori: " + tipo);
         };
     }
 
-    // Se in futuro il decision engine introducesse un livello severo per uno di questi due tipi 
-    // senza che il simulatore venga aggiornato di conseguenza, viene stampato  un log di avviso.
+    // Rete di sicurezza per i soli tipi che, secondo il decision engine attuale,
+    // non dovrebbero mai produrre un livello "severo".
     private void avvisaSeSeveroInatteso(String tipo, String livello) {
         if (SEVERO.equals(livello)) {
             log.warn("Ricevuto livello 'severo' non previsto per il tipo '{}': verificare se la regola corrispondente è cambiata.", tipo);

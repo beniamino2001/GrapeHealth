@@ -2,11 +2,16 @@
 const API_BASE = 'http://localhost:8084/api';
 
 function buildQuery(params) {
-  const qs = Object.entries(params)
-    .filter(([, v]) => v !== null && v !== undefined && v !== '')
-    .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
-    .join('&');
-  return qs ? `?${qs}` : '';
+  const coppie = [];
+  Object.entries(params).forEach(([k, v]) => {
+    if (v === null || v === undefined || v === '') return;
+    if (Array.isArray(v)) {
+      v.forEach(elemento => coppie.push(`${encodeURIComponent(k)}=${encodeURIComponent(elemento)}`));
+    } else {
+      coppie.push(`${encodeURIComponent(k)}=${encodeURIComponent(v)}`);
+    }
+  });
+  return coppie.length ? `?${coppie.join('&')}` : '';
 }
 
 async function fetchJSON(url) {
@@ -35,8 +40,11 @@ const GrapeHealthAPI = {
   getAllerte({ stato = 'attiva', tipo, parcella, page = 0, size = 50 } = {}) {
     return fetchJSON(`${API_BASE}/allerte${buildQuery({ stato, tipo, parcella, page, size })}`);
   },
-  getRaccomandazioni({ allertaId } = {}) {
-    return fetchJSON(`${API_BASE}/raccomandazioni${buildQuery({ allertaId })}`);
+  getRaccomandazioni({ allertaId, allertaIds } = {}) {
+    return fetchJSON(`${API_BASE}/raccomandazioni${buildQuery({ allertaId, allertaIds })}`);
+  },
+  getParcelle() {
+    return fetchJSON(`${API_BASE}/parcelle`);
   },
 };
 

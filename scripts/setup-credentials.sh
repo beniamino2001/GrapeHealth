@@ -13,9 +13,9 @@
 #      e la password già hashata (rabbitmqctl hash_password, non una reimplementazione
 #      artigianale dell'algoritmo), caricato al boot da management.load_definitions;
 #   4. copia .env.example in .env sostituendo i placeholder con le credenziali generate,
-#      letto dalle app Spring Boot locali (plugin EnvFile) per autenticarsi come client
-#      AMQP/JDBC — le password restano comunque necessarie in chiaro lì, perché un
-#      client deve sempre presentare la credenziale reale per autenticarsi.
+#      letto dalle app Spring Boot locali deployate sulle relative istanze Tomcat tramite 
+#      setenv.sh per autenticarsi come client AMQP/JDBC — le password restano comunque 
+#      necessarie in chiaro lì, perché un client deve sempre presentare la credenziale reale per autenticarsi.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -24,6 +24,7 @@ ENV_FILE=".env"
 ENV_TEMPLATE=".env.example"
 RABBITMQ_IMAGE="rabbitmq:4.3-management"
 RABBITMQ_DEFINITIONS="infra/rabbitmq/definitions.json"
+RABBITMQ_DEFINITIONS_TEMPLATE="infra/rabbitmq/definitions.json.example"
 
 # Se anche uno solo degli artefatti generati esiste già, evita di rigenerare gli altri con valori nuovi e disallineati
 # rispetto a un volume Docker che potrebbe contenere ancora l'utente creato con le credenziali precedenti.
@@ -47,9 +48,8 @@ if [[ ${#ARTEFATTI_ESISTENTI[@]} -gt 0 ]]; then
   exit 0
 fi
 
-# Se RABBITMQ_USER/RABBITMQ_PASS o POSTGRES_USER/POSTGRES_PASSWORD sono già esportate nella shell di esecuzione
-# (da una sessione precedente, o da un profilo tipo ~/.zshrc), continueranno a valere anche dopo aver
-# generato un .env nuovo, finché non apri un terminale pulito o le fai unset qui sotto.
+# Se RABBITMQ_USER/RABBITMQ_PASS o POSTGRES_USER/POSTGRES_PASSWORD sono già esportate nella shell di esecuzione, 
+# continueranno a valere anche dopo aver generato un .env nuovo, finché non apri un terminale pulito o le fai unset qui sotto.
 STANTIE=$(env | grep -E '^(RABBITMQ_USER|RABBITMQ_PASS|POSTGRES_USER|POSTGRES_PASSWORD)=' || true)
 if [[ -n "$STANTIE" ]]; then
   echo "ATTENZIONE: in questa shell risultano già esportate delle variabili con questi nomi:"
@@ -82,38 +82,16 @@ printf '%s' "$PG_USER" > "$SECRETS_DIR/postgres_user.txt"
 printf '%s' "$PG_PASS" > "$SECRETS_DIR/postgres_password.txt"
 chmod 600 "$SECRETS_DIR"/postgres_user.txt "$SECRETS_DIR"/postgres_password.txt
 
-# --- RabbitMQ: definitions.json con password già hashata dal tool ufficiale ---
+# --- RabbitMQ: definitions.json generato dal template, con password già hashata dal tool ufficiale ---
 echo "Genero l'hash della password RabbitMQ (rabbitmqctl hash_password, immagine ${RABBITMQ_IMAGE})..."
 RMQ_HASH=$(docker run --rm "$RABBITMQ_IMAGE" rabbitmqctl hash_password "$RMQ_PASS" | tail -n1 | tr -d '\r')
 
-cat > "$RABBITMQ_DEFINITIONS" <<JSON
-{
-  "rabbit_version": "4.3.0",
-  "users": [
-    {
-      "name": "${RMQ_USER}",
-      "password_hash": "${RMQ_HASH}",
-      "hashing_algorithm": "rabbit_password_hashing_sha256",
-      "tags": ["administrator"]
-    }
-  ],
-  "vhosts": [
-    { "name": "/" }
-  ],
-  "permissions": [
-    {
-      "user": "${RMQ_USER}",
-      "vhost": "/",
-      "configure": ".*",
-      "write": ".*",
-      "read": ".*"
-    }
-  ]
-}
-JSON
+cp "$RABBITMQ_DEFINITIONS_TEMPLATE" "$RABBITMQ_DEFINITIONS"
+sed -i.bak "s|GENERATO_DA_setup-credentials.sh_NON_MODIFICARE_A_MANO|${RMQ_HASH}|" "$RABBITMQ_DEFINITIONS"
+rm -f "${RABBITMQ_DEFINITIONS}.bak"
 chmod 600 "$RABBITMQ_DEFINITIONS"
 
-# --- .env: letto dalle app Spring Boot locali (plugin EnvFile) ---
+# --- .env: letto dalle app Spring Boot locali deployate sulle relative istanze Tomcat tramite setenv.sh ---
 cp "$ENV_TEMPLATE" "$ENV_FILE"
 sed -i.bak \
   -e "s/^POSTGRES_USER=.*/POSTGRES_USER=${PG_USER}/" \
