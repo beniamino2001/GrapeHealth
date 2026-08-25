@@ -6,16 +6,16 @@ services:
     container_name: grapehealth-rabbitmq
     hostname: grapehealth-rabbitmq
     ports:
-      - "5672:5672"     # AMQP (consumer interni: decision engine, persistenza, attuatori)
-      - "1883:1883"     # MQTT (pubblicazione dai sensori simulati)
-      - "15672:15672"   # UI Interface per il management del broker
+      - "5672:5672" # AMQP (consumer interni: decision engine, persistenza, attuatori)
+      - "1883:1883" # MQTT (pubblicazione dai sensori simulati)
+      - "15672:15672" # UI Interface per il management del broker
     volumes:
       - ./infra/rabbitmq/enabled_plugins:/etc/rabbitmq/enabled_plugins:ro
       - ./infra/rabbitmq/rabbitmq.conf:/etc/rabbitmq/conf.d/10-grapehealth.conf:ro
       - ./infra/rabbitmq/definitions.json:/etc/rabbitmq/definitions.json:ro
       - rabbitmq-data:/var/lib/rabbitmq
     healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "-q", "check_running"]
+      test: [ "CMD", "rabbitmq-diagnostics", "-q", "check_running" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -27,7 +27,7 @@ services:
     ports:
       - "5432:5432"
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-grapehealth}   # fallback comodo per il nome del DB
+      POSTGRES_DB: ${POSTGRES_DB:-grapehealth} # fallback comodo per il nome del DB
       POSTGRES_USER_FILE: /run/secrets/postgres_user
       POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
     secrets:
@@ -37,10 +37,33 @@ services:
       - ./infra/postgres/init:/docker-entrypoint-initdb.d:ro
       - postgres-data:/var/lib/postgresql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $$(cat /run/secrets/postgres_user)"]
+      test: [ "CMD-SHELL", "pg_isready -U $$(cat /run/secrets/postgres_user)" ]
       interval: 10s
       timeout: 5s
       retries: 5
+
+  tomcat:
+    build:
+      context: .
+      dockerfile: infra/tomcat/Dockerfile
+    container_name: grapehealth-tomcat
+    ports:
+      - "8081-8085:8081-8085"
+    volumes:
+      - ${TOMCAT_INSTANCES_DIR}:/opt/grapehealth/instances
+      - ./infra/tomcat/istanze-escluse.conf:/opt/grapehealth/istanze-escluse.conf
+      - ${SPRING_BOOT_LOGS_DIR}:/opt/grapehealth/logs
+    env_file:
+      - .env
+    environment:
+      PG_HOST: postgres
+      RABBITMQ_HOST: rabbitmq
+      MQTT_HOST: rabbitmq
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
 
 secrets:
   postgres_user:

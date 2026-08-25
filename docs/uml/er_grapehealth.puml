@@ -18,15 +18,12 @@ TABLE(nodo_sensore) {
   codice : VARCHAR <<UNIQUE>>
   parcella_id : BIGINT <<FK>>
   tipo_nodo : VARCHAR
-  latitudine : DOUBLE
-  longitudine : DOUBLE
   attivo : BOOLEAN
   data_installazione : DATE
 }
 
 TABLE(regola) {
   codice : VARCHAR <<PK>>
-  tipo_allerta : VARCHAR
   descrizione : TEXT
   fonte_bibliografica : VARCHAR
 }

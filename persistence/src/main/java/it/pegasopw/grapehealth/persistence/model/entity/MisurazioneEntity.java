@@ -32,6 +32,11 @@ public class MisurazioneEntity {
     @Column(name = "rilevato_il", nullable = false)
     private Instant rilevatoIl;
 
+    // misurazione.ricevuto_il esiste nello schema (DEFAULT now()) ma non e'
+    // mappata qui apposta: rilevato_il e' il timestamp SIMULATO (dal
+    // messaggio), ricevuto_il resta quello REALE di arrivo del messaggio,
+    // valorizzato dal database stesso, non da questo codice.
+
     public MisurazioneEntity() {
     }
 

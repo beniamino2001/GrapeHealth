@@ -31,7 +31,7 @@ public class AllertaController {
     public Page<AllertaDTO> cerca(
             @Parameter(description = "'attiva' o 'risolta'. Default: 'attiva' se omesso")
             @RequestParam(required = false) String stato,
-            @Parameter(description = "'stress_idrico', 'ondata_di_calore', 'sunburn' o 'tre_dieci'")
+            @Parameter(description = "'stress_idrico', 'ondata_di_calore', 'sunburn', 'tre_dieci', 'svernamento_oospore', 'infezione_secondaria' o 'danno_radicale'")
             @RequestParam(required = false) String tipo,
             @Parameter(description = "Codice della parcella, es. 'parcellaA'")
             @RequestParam(required = false) String parcella,

@@ -39,16 +39,19 @@
       <form id="filtroForm" class="filtro-form">
         <label>
           Parcella
+          <!-- Popolato in js/main.js (popolaFiltri) dal catalogo restituito da /api/parcelle -->
           <select id="filtroParcella">
             <option value="">Tutte</option>
           </select>
         </label>
         <label>
           Parametro
+          <!-- Popolato in js/main.js (popolaFiltri) dall'elenco PARAMETRI -->
           <select id="filtroParametro"></select>
         </label>
         <label>
           Periodo del grafico
+          <!-- I value devono coincidere esattamente con le chiavi di FINESTRE_TEMPORALI in js/main.js -->
           <select id="filtroFinestra">
             <option value="breve" selected>Ultime letture</option>
             <option value="giorno">Ultimo giorno</option>
@@ -80,7 +83,11 @@
           <option value="ondata_di_calore">Ondata di calore</option>
           <option value="sunburn">Sunburn</option>
           <option value="tre_dieci">Regola del tre-dieci</option>
+          <option value="svernamento_oospore">Svernamento oospore</option>
+          <option value="infezione_secondaria">Infezione secondaria</option>
+          <option value="danno_radicale">Danno radicale</option>
         </select>
+        <!-- Popolato in js/main.js (popolaFiltri), stesso catalogo di #filtroParcella sopra -->
         <select id="filtroRisolteParcella">
           <option value="">Tutte le parcelle</option>
         </select>
@@ -106,51 +113,116 @@
 
     <section class="panel panel-statistiche">
       <h2>Statistiche generali</h2>
-      <div class="kpi-grid">
-        <div class="kpi-card">
-          <span class="kpi-valore" id="kpiAllerteAttive">—</span>
-          <span class="kpi-etichetta">Allerte attive</span>
+
+      <div class="stat-categoria">
+        <h3 class="stat-categoria-titolo">Stato attuale del vigneto</h3>
+        <div class="kpi-grid">
+          <div class="kpi-card">
+            <span class="kpi-valore" id="kpiAllerteAttive">—</span>
+            <span class="kpi-etichetta">Allerte attive</span>
+          </div>
+          <div class="kpi-card">
+            <span class="kpi-valore" id="kpiParcelleAllerta">—</span>
+            <span class="kpi-etichetta">Parcelle sotto allerta</span>
+          </div>
+          <div class="kpi-card">
+            <span class="kpi-valore" id="kpiAllerteSevere">—</span>
+            <span class="kpi-etichetta">Allerte di livello severo</span>
+          </div>
         </div>
-        <div class="kpi-card">
-          <span class="kpi-valore" id="kpiMisurazioniCaricate">—</span>
-          <span class="kpi-etichetta">Misurazioni caricate</span>
-        </div>
-        <div class="kpi-card">
-          <span class="kpi-valore" id="kpiNodiAttivi">—</span>
-          <span class="kpi-etichetta">Nodi che riportano il parametro</span>
-        </div>
-        <div class="kpi-card">
-          <span class="kpi-valore" id="kpiTassoEsecuzione">—</span>
-          <span class="kpi-etichetta">Raccomandazioni con azione eseguita (recenti)</span>
-        </div>
-        <div class="kpi-card">
-          <span class="kpi-valore" id="kpiTempoRisposta">—</span>
-          <span class="kpi-etichetta">Tempo medio esecuzione → risoluzione</span>
-        </div>
-        <div class="kpi-card">
-          <span class="kpi-valore" id="kpiUltimaRicevuta">—</span>
-          <span class="kpi-etichetta">Ultima misurazione ricevuta (ora reale)</span>
+        <div class="stat-charts">
+          <div>
+            <h4>Allerte attive per parcella</h4>
+            <div class="chart-wrapper chart-wrapper-small">
+              <canvas id="chartAllerteParcella"></canvas>
+            </div>
+          </div>
+          <div>
+            <h4>Allerte attive per livello di rischio</h4>
+            <div class="chart-wrapper chart-wrapper-small">
+              <canvas id="chartAllerteLivello"></canvas>
+            </div>
+          </div>
         </div>
       </div>
-      <div class="stat-charts">
-        <div>
-          <h3>Allerte attive per parcella</h3>
-          <div class="chart-wrapper chart-wrapper-small">
-            <canvas id="chartAllerteParcella"></canvas>
+
+      <div class="stat-categoria">
+        <h3 class="stat-categoria-titolo">Risposta e interventi</h3>
+        <div class="kpi-grid">
+          <div class="kpi-card">
+            <span class="kpi-valore" id="kpiTassoEsecuzione">—</span>
+            <span class="kpi-etichetta">Raccomandazioni con azione eseguita (recenti)</span>
+          </div>
+          <div class="kpi-card">
+            <span class="kpi-valore" id="kpiTempoRisposta">—</span>
+            <span class="kpi-etichetta">Tempo medio esecuzione → risoluzione</span>
           </div>
         </div>
-        <div>
-          <h3>Allerte attive per livello di rischio</h3>
-          <div class="chart-wrapper chart-wrapper-small">
-            <canvas id="chartAllerteLivello"></canvas>
+        <div class="stat-charts">
+          <div>
+            <h4>Azioni raccomandate (allerte attive)</h4>
+            <div class="chart-wrapper chart-wrapper-small">
+              <canvas id="chartAzioni"></canvas>
+            </div>
           </div>
         </div>
-        <div>
-          <h3>Azioni raccomandate (allerte attive)</h3>
-          <div class="chart-wrapper chart-wrapper-small">
-            <canvas id="chartAzioni"></canvas>
+      </div>
+
+      <div class="stat-categoria">
+        <h3 class="stat-categoria-titolo">Tendenze recenti</h3>
+        <div class="kpi-grid">
+          <div class="kpi-card">
+            <span class="kpi-valore" id="kpiTipoRicorrente">—</span>
+            <span class="kpi-etichetta">Tipo più frequente (risolte recenti)</span>
+          </div>
+          <div class="kpi-card">
+            <span class="kpi-valore" id="kpiParcellaRicorrente">—</span>
+            <span class="kpi-etichetta">Parcella più coinvolta (risolte recenti)</span>
+          </div>
+          <div class="kpi-card">
+            <span class="kpi-valore" id="kpiNodoRicorrente">—</span>
+            <span class="kpi-etichetta">Nodo più coinvolto (risolte recenti)</span>
           </div>
         </div>
+      </div>
+
+      <div class="stat-categoria">
+        <h3 class="stat-categoria-titolo">Stato del sistema</h3>
+        <div class="kpi-grid">
+          <div class="kpi-card">
+            <span class="kpi-valore" id="kpiNodiOperativi">—</span>
+            <span class="kpi-etichetta">Nodi sensore operativi</span>
+          </div>
+          <div class="kpi-card">
+            <span class="kpi-valore" id="kpiUltimaRicevuta">—</span>
+            <span class="kpi-etichetta">Ultima misurazione ricevuta (ora reale)</span>
+          </div>
+          <div class="kpi-card">
+            <span class="kpi-valore" id="kpiUltimaAzioneEseguita">—</span>
+            <span class="kpi-etichetta">Ultima azione eseguita (ora reale)</span>
+          </div>
+        </div>
+        <!-- Elemento "details" nativo: nessun JavaScript necessario per aprire/chiudere,
+             coerente con l'intera dashboard, che non usa alcun framework o build step. -->
+        <details class="nodi-dettaglio">
+          <summary>Dettaglio nodi sensore</summary>
+          <table class="tabella-soglie">
+            <thead>
+              <tr>
+                <th>Codice</th>
+                <th>Tipo</th>
+                <th>Parcella</th>
+                <th>Stato</th>
+                <th>Installato il</th>
+              </tr>
+            </thead>
+            <tbody id="corpoTabellaNodi">
+              <tr>
+                <td colspan="5">Caricamento…</td>
+              </tr>
+            </tbody>
+          </table>
+        </details>
       </div>
     </section>
 

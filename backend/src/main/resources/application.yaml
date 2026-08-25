@@ -18,7 +18,7 @@ spring:
 
 logging:
   file:
-    name: ${user.home}/Downloads/grapehealth-decisionengine.log
+    name: ${SPRING_BOOT_LOGS_DIR:${user.home}/Downloads}/grapehealth-decisionengine.log
   level:
     org.springframework.amqp: INFO
     com.rabbitmq.client: INFO

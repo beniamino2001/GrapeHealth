@@ -42,4 +42,39 @@ class MappatoreRaccomandazioneTest {
         assertThrows(IllegalArgumentException.class,
                 () -> mappatore.testoRaccomandazione(allerta("tipo_sconosciuto", "moderato")));
     }
+
+    @Test
+    void svernamentoOosporeNonHaAzioneCatalogata() {
+        assertTrue(mappatore.azioneConsigliata(allerta("svernamento_oospore", "moderato")).isEmpty());
+    }
+
+    @Test
+    void infezioneSecondariaNonHaAzioneCatalogata() {
+        assertTrue(mappatore.azioneConsigliata(allerta("infezione_secondaria", "moderato")).isEmpty());
+    }
+
+    @Test
+    void treDieciHaAzioneCatalogata() {
+        assertTrue(mappatore.azioneConsigliata(allerta("tre_dieci", "moderato")).isPresent());
+        assertEquals("trattamento_fitosanitario", mappatore.azioneConsigliata(allerta("tre_dieci", "moderato")).get());
+    }
+
+    @Test
+    void svernamentoOosporeETestoInformativoSenzaRaccomandazioneDiAzione() {
+        String testo = mappatore.testoRaccomandazione(allerta("svernamento_oospore", "moderato"));
+        assertTrue(testo.contains("monitoraggio"));
+        assertFalse(testo.contains("si raccomanda"));
+    }
+
+    @Test
+    void dannoRadicaleNonHaAzioneCatalogata() {
+        assertTrue(mappatore.azioneConsigliata(allerta("danno_radicale", "severo")).isEmpty());
+    }
+
+    @Test
+    void dannoRadicaleTestoInformativoSenzaRaccomandazioneDiAzione() {
+        String testo = mappatore.testoRaccomandazione(allerta("danno_radicale", "severo"));
+        assertTrue(testo.contains("monitoraggio"));
+        assertFalse(testo.contains("si raccomanda"));
+    }
 }

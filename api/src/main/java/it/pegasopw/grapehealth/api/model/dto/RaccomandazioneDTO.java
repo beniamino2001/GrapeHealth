@@ -16,6 +16,10 @@ public record RaccomandazioneDTO(
         String descrizioneRegola,
         String fonteBibliograficaRegola,
         List<AzioneMitigazioneDTO> azioniAlternative,
+        // Le soglie bibliografiche che definiscono la regola (es. per sunburn, le
+        // quattro coppie soglia/durata LT50 di Schmidt et al. 2023): prima
+        // consultabili solo nel codice Java del decision engine, mai tramite l'API
+        // nonostante fossero gia' a database.
         List<SogliaDTO> soglieRegola
 ) {
 }

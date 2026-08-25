@@ -4,6 +4,7 @@ import it.pegasopw.grapehealth.decisionengine.model.evento.AllertaEvent;
 import it.pegasopw.grapehealth.decisionengine.publisher.AllertaPublisher;
 import it.pegasopw.grapehealth.decisionengine.regole.RegolaRischio;
 import it.pegasopw.grapehealth.decisionengine.stato.StatoRischio;
+import it.pegasopw.grapehealth.decisionengine.cache.CacheNodiAttivi;
 import org.junit.jupiter.api.Test;
 import org.springframework.amqp.core.Message;
 import org.springframework.amqp.core.MessageProperties;
@@ -35,13 +36,19 @@ class MisurazioneListenerTest {
                 nodo, parcella, parametro, valore);
     }
 
+    private CacheNodiAttivi cacheNodiAttiviCheAccettaTutto() {
+        CacheNodiAttivi cache = mock(CacheNodiAttivi.class);
+        when(cache.attivo(any())).thenReturn(true);
+        return cache;
+    }
+
     @Test
     void nonTentaDiDeserializzareUnMessaggioDiStatoComeJson() {
         // corpo volutamente non-JSON: se il listener tentasse comunque di
         // deserializzarlo come misurazione, la chiamata sotto lancerebbe
         RegolaRischio regola = mock(RegolaRischio.class);
         AllertaPublisher publisher = mock(AllertaPublisher.class);
-        MisurazioneListener listener = new MisurazioneListener(jsonMapper, List.of(regola), publisher, new StatoRischio());
+        MisurazioneListener listener = new MisurazioneListener(jsonMapper, List.of(regola), publisher, new StatoRischio(), cacheNodiAttiviCheAccettaTutto());
 
         listener.onMessage(messaggio("grapehealth.status.meteo-A1", "online"));
 
@@ -59,7 +66,7 @@ class MisurazioneListenerTest {
 
         AllertaPublisher publisher = mock(AllertaPublisher.class);
         MisurazioneListener listener = new MisurazioneListener(jsonMapper,
-                List.of(regolaCheScatta, regolaCheNonScatta), publisher, new StatoRischio());
+                List.of(regolaCheScatta, regolaCheNonScatta), publisher, new StatoRischio(),cacheNodiAttiviCheAccettaTutto());
 
         listener.onMessage(messaggio("grapehealth.idrico.parcellaA.idrico-A1",
                 jsonMisurazione("idrico-A1", "parcellaA", "psi_stem", -1.3)));
@@ -83,7 +90,7 @@ class MisurazioneListenerTest {
 
         AllertaPublisher publisher = mock(AllertaPublisher.class);
         MisurazioneListener listener = new MisurazioneListener(jsonMapper,
-                List.of(prima, seconda), publisher, new StatoRischio());
+                List.of(prima, seconda), publisher, new StatoRischio(),cacheNodiAttiviCheAccettaTutto());
 
         listener.onMessage(messaggio("grapehealth.meteo.parcellaA.meteo-A1",
                 jsonMisurazione("meteo-A1", "parcellaA", "temperatura_aria", 36.0)));
@@ -98,7 +105,7 @@ class MisurazioneListenerTest {
         // RabbitConfig possa scartare il messaggio invece di farlo
         // ripubblicare all'infinito dal container AMQP
         MisurazioneListener listener = new MisurazioneListener(jsonMapper, List.of(),
-                mock(AllertaPublisher.class), new StatoRischio());
+                mock(AllertaPublisher.class), new StatoRischio(),cacheNodiAttiviCheAccettaTutto());
 
         Message messaggioMalformato = messaggio("grapehealth.meteo.parcellaA.meteo-A1", "{questo non è JSON valido");
 
@@ -109,7 +116,7 @@ class MisurazioneListenerTest {
     void riconosceUnSecondoMessaggioDiStatoConNodoDiverso() {
         RegolaRischio regola = mock(RegolaRischio.class);
         AllertaPublisher publisher = mock(AllertaPublisher.class);
-        MisurazioneListener listener = new MisurazioneListener(jsonMapper, List.of(regola), publisher, new StatoRischio());
+        MisurazioneListener listener = new MisurazioneListener(jsonMapper, List.of(regola), publisher, new StatoRischio(),cacheNodiAttiviCheAccettaTutto());
 
         listener.onMessage(messaggio("grapehealth.status.bacca-C1", "offline"));
 

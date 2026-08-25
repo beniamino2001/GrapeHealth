@@ -1,17 +1,42 @@
 package it.pegasopw.grapehealth.decisionengine.regole;
 
+import it.pegasopw.grapehealth.decisionengine.cache.CacheSoglieRegole;
 import it.pegasopw.grapehealth.decisionengine.model.dto.MisurazioneMessage;
 import it.pegasopw.grapehealth.decisionengine.stato.StatoRischio;
+import it.pegasopw.grapehealth.decisionengine.model.entity.RegolaSogliaEntity;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 class RegolaSunburnTest {
 
-    private final RegolaSunburn regola = new RegolaSunburn();
+    private final RegolaSunburn regola = new RegolaSunburn(cacheSoglieRegole());
+
+    private RegolaSogliaEntity soglia(double valore) {
+        RegolaSogliaEntity s = new RegolaSogliaEntity();
+        s.setValoreSoglia(valore);
+        return s;
+    }
+
+    private RegolaSogliaEntity soglia(double valore, int durataMinuti) {
+        RegolaSogliaEntity s = soglia(valore);
+        s.setDurataMinimaMinuti(durataMinuti);
+        return s;
+    }
+
+    private CacheSoglieRegole cacheSoglieRegole() {
+        CacheSoglieRegole cache = mock(CacheSoglieRegole.class);
+        when(cache.sogliaUnica("sunburn", "temperatura_bacca", "moderato")).thenReturn(soglia(45.0));
+        when(cache.soglieMultiple("sunburn", "temperatura_bacca", "severo")).thenReturn(List.of(
+                soglia(53.79, 15), soglia(49.94, 30), soglia(47.82, 60), soglia(47.06, 90)));
+        return cache;
+    }
     private final StatoRischio stato = new StatoRischio();
     private final Instant ora = Instant.parse("2026-07-15T13:00:00Z");
 

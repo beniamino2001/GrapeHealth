@@ -12,8 +12,25 @@ simulazione:
   # Sovrascrivibile da riga di comando con --time-scale
   time_scale: 1
 
-  # intervallo fra due letture consecutive, espresso in SECONDI SIMULATI
-  intervallo_pubblicazione_secondi: 30
+  # Intervallo fra due letture consecutive, in SECONDI SIMULATI. 900 (15 minuti
+  # simulati) è coerente con la cadenza reale di una centralina agrometeorologica
+  # a batteria — non i 30s di una prima stesura, troppo frequenti per qualunque
+  # sensore da campo reale. Un valore intermedio di 300 (5 minuti), scelto in un
+  # secondo momento solo per restare sopra il pavimento minimo di sleep_reale
+  # (v. sotto), si è rivelato comunque troppo vicino a quel pavimento per ridurre
+  # davvero il numero di letture — 900 lo fa con un margine ampio, oltre a essere
+  # una cadenza più realistica in assoluto. La durata delle regole a soglia nel
+  # decision engine è tracciata sul tempo trascorso fra i timestamp, non sul
+  # numero di letture: un intervallo più largo non compromette le soglie a
+  # durata più breve (es. sunburn, 15 minuti).
+  #
+  # A time_scale alti c'è anche un secondo motivo per restare larghi: sotto
+  # sleep_reale = intervallo_pubblicazione_secondi / time_scale, un pavimento di
+  # 0.1s in main.py impedisce comunque al ciclo di girare più veloce — con un
+  # intervallo troppo basso, quel pavimento sovrascrive silenziosamente il valore
+  # qui configurato (v. avviso_intervallo_sovrascritto in main.py). 900 resta
+  # sopra quel pavimento fino a time_scale=9000.
+  intervallo_pubblicazione_secondi: 900
 
   # normale | stress_idrico | ondata_di_calore
   # Sovrascrivibile da riga di comando con --scenario
@@ -29,11 +46,13 @@ parcelle:
     longitudine: 16.8674
     nodi:
       - codice: meteo-A1
-        tipo: meteo      # temp_aria, umidita_aria, pioggia, bagnatura_fogliare
+        tipo: meteo      # temp_aria, umidita_aria, pioggia, bagnatura_fogliare, velocita_vento
       - codice: idrico-A1
         tipo: idrico      # psi_stem
       - codice: bacca-A1
         tipo: bacca       # temp_bacca
+      - codice: suolo-A1
+        tipo: suolo       # temperatura_suolo, umidita_suolo
 
   - nome: parcellaB
     varieta: "Montepulciano"
@@ -48,6 +67,8 @@ parcelle:
         tipo: idrico
       - codice: bacca-B1
         tipo: bacca
+      - codice: suolo-B1
+        tipo: suolo
 
   - nome: parcellaC
     varieta: "Trebbiano"
@@ -62,3 +83,5 @@ parcelle:
         tipo: idrico
       - codice: bacca-C1
         tipo: bacca
+      - codice: suolo-C1
+        tipo: suolo

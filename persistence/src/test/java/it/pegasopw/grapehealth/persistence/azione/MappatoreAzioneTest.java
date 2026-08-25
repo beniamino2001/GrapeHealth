@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
 import java.util.Locale;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -21,22 +22,32 @@ class MappatoreAzioneTest {
 
     @Test
     void stressIdricoMappaSuIrrigazioneSoccorso() {
-        assertEquals("irrigazione_soccorso", mappatore.tipoAzione(evento("stress_idrico", "moderato")));
+        assertEquals(Optional.of("irrigazione_soccorso"), mappatore.tipoAzione(evento("stress_idrico", "moderato")));
     }
 
     @Test
     void ondataDiCaloreMappaSuNebulizzazione() {
-        assertEquals("nebulizzazione", mappatore.tipoAzione(evento("ondata_di_calore", "moderato")));
+        assertEquals(Optional.of("nebulizzazione"), mappatore.tipoAzione(evento("ondata_di_calore", "moderato")));
     }
 
     @Test
     void sunburnMappaSuNebulizzazione() {
-        assertEquals("nebulizzazione", mappatore.tipoAzione(evento("sunburn", "severo")));
+        assertEquals(Optional.of("nebulizzazione"), mappatore.tipoAzione(evento("sunburn", "severo")));
     }
 
     @Test
     void treDieciMappaSuTrattamentoFitosanitario() {
-        assertEquals("trattamento_fitosanitario", mappatore.tipoAzione(evento("tre_dieci", "moderato")));
+        assertEquals(Optional.of("trattamento_fitosanitario"), mappatore.tipoAzione(evento("tre_dieci", "moderato")));
+    }
+
+    @Test
+    void svernamentoOosporeNonHaAzioneCatalogata() {
+        assertEquals(Optional.empty(), mappatore.tipoAzione(evento("svernamento_oospore", "moderato")));
+    }
+
+    @Test
+    void infezioneSecondariaNonHaAzioneCatalogata() {
+        assertEquals(Optional.empty(), mappatore.tipoAzione(evento("infezione_secondaria", "moderato")));
     }
 
     @Test
@@ -54,7 +65,7 @@ class MappatoreAzioneTest {
         assertTrue(note.contains("parametro-test"));
         assertTrue(note.contains("messaggio di test"));
     }
-    
+
     @Test
     void valoreOsservatoUsaSempreIlPuntoComeSeparatoreDecimaleAPrescindereDalLocaleDiDefault() {
         Locale localeOriginale = Locale.getDefault();
@@ -67,5 +78,10 @@ class MappatoreAzioneTest {
         } finally {
             Locale.setDefault(localeOriginale);
         }
+    }
+
+    @Test
+    void dannoRadicaleNonHaAzioneCatalogata() {
+        assertEquals(Optional.empty(), mappatore.tipoAzione(evento("danno_radicale", "severo")));
     }
 }

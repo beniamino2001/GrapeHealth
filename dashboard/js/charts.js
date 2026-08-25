@@ -1,7 +1,17 @@
+// Istanze e configurazione di tutti i grafici Chart.js della dashboard: il
+// grafico dell'andamento delle misurazioni nel tempo, e i tre grafici
+// aggregati del pannello statistiche (parcella, livello di rischio, azioni
+// raccomandate). Ogni funzione render* distrugge l'istanza precedente dello
+// stesso canvas prima di crearne una nuova, per evitare sovrapposizioni.
+
 Chart.defaults.font.family = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
 Chart.defaults.color = '#4a4a44';
 Chart.defaults.borderColor = '#e8e5d8';
 
+// Colore identificativo per ciascuna parcella nei grafici multi-serie. Una
+// parcella non censita qui (v. COLORI_TIPO sotto per lo stesso principio
+// applicato ai tipi di allerta) riceve un grigio neutro invece di un colore
+// scelto a caso, cosi' resta comunque distinguibile nel grafico e in legenda.
 const COLORI_PARCELLA = {
   parcellaA: '#5b8c5a',
   parcellaB: '#4a7ba6',
@@ -118,11 +128,15 @@ function gestisciStatoVuotoGrafico(canvasId, vuoto) {
 
 let alertTypeChart = null;
 
+// Stesso principio di COLORI_PARCELLA sopra, applicato ai sette tipi di allerta.
 const COLORI_TIPO = {
   stress_idrico: '#5b8c5a',
   ondata_di_calore: '#c0785a',
   sunburn: '#d9a441',
   tre_dieci: '#8a4f7d',
+  svernamento_oospore: '#8b6f47',
+  infezione_secondaria: '#2f7a7a',
+  danno_radicale: '#7a3b2e',
 };
 
 function renderAlertTypeChart(canvasId, allerte) {
@@ -170,6 +184,9 @@ function formatTipo(tipo) {
     ondata_di_calore: 'Ondata di calore',
     sunburn: 'Sunburn',
     tre_dieci: 'Regola del tre-dieci',
+    svernamento_oospore: 'Svernamento oospore',
+    infezione_secondaria: 'Infezione secondaria',
+    danno_radicale: 'Danno radicale',
   };
   return mappa[tipo] || tipo;
 }
@@ -257,4 +274,12 @@ function renderAzioniChart(canvasId, raccomandazioni) {
       plugins: { legend: { display: false } },
     },
   });
+}
+
+// V. il commento equivalente in api.js per il perche' di questo blocco: nel
+// browser e' un no-op (nessun `module`), in Node espone a charts.test.js le
+// due sole funzioni di questo file che non toccano il DOM o Chart.js.
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { decima, formatTipo };
+  global.formatTipo = formatTipo;
 }

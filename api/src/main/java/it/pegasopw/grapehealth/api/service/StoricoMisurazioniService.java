@@ -10,7 +10,9 @@ import it.pegasopw.grapehealth.api.repository.MisurazioneRepository;
 import it.pegasopw.grapehealth.api.repository.spec.MisurazioneSpecifications;
 import it.pegasopw.grapehealth.api.service.support.NodoResolver;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -50,8 +52,21 @@ public class StoricoMisurazioniService {
                 .and(MisurazioneSpecifications.rilevatoIlDopo(dal))
                 .and(MisurazioneSpecifications.rilevatoIlPrima(al));
 
-        Page<MisurazioneEntity> pagina = misurazioneRepository.findAll(filtro, pageable);
+        // Una finestra temporale delimitata (dal e al entrambi presenti) è per definizione una
+        // richiesta di "tutti i dati di questo intervallo", non una sfoglia pagina per pagina: una
+        // singola pagina a dimensione fissa puo' troncare silenziosamente l'intervallo quando le
+        // righe candidate superano il tetto di paginazione, restituendo solo le piu' recenti senza
+        // segnalarlo. Per questo caso si interroga senza Pageable, ordinando cronologicamente: la
+        // finestra è completa per costruzione, non solo nella pratica.
+        if (dal != null && al != null) {
+            List<MisurazioneDTO> tutte = misurazioneRepository.findAll(filtro, Sort.by(Sort.Direction.ASC, "rilevatoIl"))
+                    .stream()
+                    .map(entita -> MisurazioneMapper.toDTO(entita, cacheNodi, cacheParcelle))
+                    .toList();
+            return new PageImpl<>(tutte, pageable, tutte.size());
+        }
 
+        Page<MisurazioneEntity> pagina = misurazioneRepository.findAll(filtro, pageable);
         return pagina.map(entita -> MisurazioneMapper.toDTO(entita, cacheNodi, cacheParcelle));
     }
 }

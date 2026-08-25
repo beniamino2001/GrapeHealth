@@ -33,11 +33,9 @@ CREATE TABLE nodo_sensore (
     codice              VARCHAR(64) NOT NULL UNIQUE,       -- es. "meteo-A1"
     parcella_id         BIGINT NOT NULL REFERENCES parcella(id),
     -- Il CHECK rende esplicito e verificabile a livello di database
-    -- l'insieme dei tre tipi di nodo effettivamente usati dal sistema.
+    -- l'insieme dei quattro tipi di nodo effettivamente usati dal sistema.
     tipo_nodo           VARCHAR(16) NOT NULL
-                            CHECK (tipo_nodo IN ('meteo', 'idrico', 'bacca')),
-    latitudine          DOUBLE PRECISION,
-    longitudine         DOUBLE PRECISION,
+                            CHECK (tipo_nodo IN ('meteo', 'idrico', 'bacca', 'suolo')),
     attivo              BOOLEAN NOT NULL DEFAULT TRUE,
     data_installazione  DATE NOT NULL DEFAULT CURRENT_DATE
 );
@@ -46,14 +44,13 @@ CREATE TABLE nodo_sensore (
 -- Catalogo delle regole di rischio e delle relative soglie bibliografiche
 -- =====================================================================
 
--- Le quattro regole del decision engine (stress idrico, ondata di calore, "tre dieci",
--- sunburn) hanno soglie con fonte bibliografica esplicita: dal database non era in alcun modo consultabile o verificabile.
+-- Le regole del decision engine hanno soglie con fonte bibliografica esplicita: dal database
+-- non era in alcun modo consultabile o verificabile.
 -- Qui "regola_codice" diventa una vera FK verso un catalogo di regole, eliminando la
 -- ridondanza e rendendo possibile risalire, a partire da un'allerta, alla soglia esatta
 -- e alla fonte bibliografica che l'hanno generata.
 CREATE TABLE regola (
-    codice               VARCHAR(64) PRIMARY KEY,   -- "stress_idrico" | "ondata_di_calore" | "tre_dieci" | "sunburn"
-    tipo_allerta         VARCHAR(32) NOT NULL,
+    codice               VARCHAR(64) PRIMARY KEY,   -- "stress_idrico" | "ondata_di_calore" | "tre_dieci" | "sunburn" | ...
     descrizione          TEXT NOT NULL,
     fonte_bibliografica  VARCHAR(255) NOT NULL
 );
@@ -64,23 +61,24 @@ CREATE TABLE regola (
 CREATE TABLE regola_soglia (
     id                      BIGSERIAL PRIMARY KEY,
     regola_codice           VARCHAR(64) NOT NULL REFERENCES regola(codice),
+    -- temperatura_suolo aggiunto per svernamento_oospore e danno_radicale (due scopi
+    -- diversi sullo stesso sensore). Restano fuori velocita_vento/umidita_suolo 
+    -- (pubblicati da sensors-simulator, v. misurazione.parametro): nessuna regola 
+    -- li usa come soglia diretta oggi — umidita_suolo è un indicatore complementare 
+    -- tracciato a runtime da RegolaStressIdrico, non una condizione scritta qui.
     parametro                VARCHAR(32) NOT NULL
                                  CHECK (parametro IN ('temperatura_aria', 'umidita_aria', 'pioggia',
                                                        'bagnatura_fogliare', 'psi_stem', 'temperatura_bacca',
-                                                       'germogli')),
+                                                       'germogli', 'temperatura_suolo')),
     livello_rischio          VARCHAR(16) NOT NULL
                                  CHECK (livello_rischio IN ('moderato', 'severo')),
     operatore                 VARCHAR(2) NOT NULL
                                  CHECK (operatore IN ('<', '<=', '>', '>=')),
     valore_soglia             DOUBLE PRECISION NOT NULL,
     unita_misura              VARCHAR(16) NOT NULL,
-    durata_minima_minuti      INTEGER,                -- valorizzato solo per soglie con condizione di durata (finestra pioggia, LT50 sunburn)
+    durata_minima_minuti      INTEGER,                -- valorizzato solo per soglie con condizione di durata (finestra pioggia, LT50 sunburn, bagnatura infezione_secondaria)
     note                      TEXT
 );
-
--- =====================================================================
--- Catalogo delle azioni di mitigazione
--- =====================================================================
 
 -- =====================================================================
 -- Tabella di incubazione di Goidanich (peronospora)
@@ -98,6 +96,10 @@ CREATE TABLE soglia_incubazione_goidanich (
                                            CHECK (percentuale_incremento_giornaliero > 0),
     PRIMARY KEY (temperatura_media, umidita_alta)
 );
+
+-- =====================================================================
+-- Catalogo delle azioni di mitigazione
+-- =====================================================================
 
 CREATE TABLE azione_mitigazione (
     codice               VARCHAR(32) PRIMARY KEY,
@@ -123,10 +125,20 @@ CREATE TABLE regola_azione (
 CREATE TABLE misurazione (
     id              BIGSERIAL PRIMARY KEY,
     nodo_id         BIGINT NOT NULL REFERENCES nodo_sensore(id),
-    -- CHECK sui sei parametri realmente pubblicati da sensors-simulator/simulator/generator.py.
+    -- CHECK sui nove parametri con un impiego reale nella logica applicativa, pubblicati
+    -- da sensors-simulator/simulator/generator.py: i sei originari più velocita_vento
+    -- (Smart & Sinclair 1976, già lavorato nel simulatore nella generazione di temperatura_bacca),
+    -- temperatura_suolo e umidita_suolo (nodo suolo).
+    -- radiazione_solare, pubblicato dallo stesso nodo meteo, è stato rimosso da questo
+    -- CHECK: nessuna soglia istantanea utilizzabile è stata reperita in letteratura
+    -- peer-reviewed per Vitis vinifera (l'unica fonte trovata è una soglia cumulata
+    -- su base stagionale, non operazionalizzabile su una singola misurazione) — un dato
+    -- senza un riferimento bibliografico preciso per un uso reale non trova posto qui.
     parametro       VARCHAR(32) NOT NULL
                         CHECK (parametro IN ('temperatura_aria', 'umidita_aria', 'pioggia',
-                                              'bagnatura_fogliare', 'psi_stem', 'temperatura_bacca')),
+                                              'bagnatura_fogliare', 'psi_stem', 'temperatura_bacca',
+                                              'velocita_vento',
+                                              'temperatura_suolo', 'umidita_suolo')),
     valore          DOUBLE PRECISION NOT NULL,
     unita_misura    VARCHAR(16) NOT NULL,
     rilevato_il     TIMESTAMPTZ NOT NULL,
@@ -160,6 +172,13 @@ CREATE TABLE allerta (
 );
 
 CREATE INDEX idx_allerta_stato ON allerta (stato, generata_il DESC);
+-- tipo e parcella_id sono entrambi filtri diretti in AllertaSpecifications (api). Tre run
+-- di test di carico non hanno mai misurato un sovrapprezzo ai volumi testati: questi due
+-- indici sono una precauzione per sessioni sperimentali future molto più lunghe, in
+-- assenza di una logica di pulizia periodica del database — non la correzione di un
+-- problema osservato.
+CREATE INDEX idx_allerta_tipo ON allerta (tipo);
+CREATE INDEX idx_allerta_parcella ON allerta (parcella_id);
 CREATE TABLE trattamento (
     id              BIGSERIAL PRIMARY KEY,
     allerta_id      BIGINT NOT NULL REFERENCES allerta(id),
@@ -198,43 +217,73 @@ INSERT INTO soglia_incubazione_goidanich (temperatura_media, umidita_alta, perce
     (25, FALSE, 16.6), (25, TRUE, 22.2),
     (26, FALSE, 16.6), (26, TRUE, 22.2);
 
--- =====================================================================
--- Seed: catalogo regole e soglie, con fonte bibliografica (v. Fase 3 §7 e bibliografia)
--- =====================================================================
+-- ==========================================================================
+-- Seed: catalogo regole e soglie, ciascuna con fonte bibliografica esplicita
+-- ==========================================================================
 
-INSERT INTO regola (codice, tipo_allerta, descrizione, fonte_bibliografica) VALUES
-    ('stress_idrico', 'stress_idrico',
+INSERT INTO regola (codice, descrizione, fonte_bibliografica) VALUES
+    ('stress_idrico',
         'Stress idrico della vite in base al potenziale idrico dello stelo (Ψstem)',
         'Acevedo-Opazo et al., 2010'),
-    ('ondata_di_calore', 'ondata_di_calore',
+    ('ondata_di_calore',
         'Ondata di calore in base alla temperatura dell''aria',
         'Valentini et al., 2024; Tarricone et al., 2020'),
-    ('tre_dieci', 'tre_dieci',
+    ('tre_dieci',
         'Regola dei "tre dieci" per il rischio di infezione primaria da peronospora',
         'Baldacci, 1947; tabella di incubazione di Goidanich, 1957/1964'),
-    ('sunburn', 'sunburn',
+    ('sunburn',
         'Scottatura da esposizione solare della bacca (logica intensità×durata)',
-        'Gambetta et al., 2021; Schmidt et al., 2023');
+        'Gambetta et al., 2021; Schmidt et al., 2023'),
+    ('svernamento_oospore',
+        'Temperatura del suolo favorevole alla germinazione delle oospore svernanti di Plasmopara viticola',
+        'Si Ammour et al., 2020'),
+    ('infezione_secondaria',
+        'Rischio di infezione secondaria di peronospora per bagnatura fogliare prolungata a temperatura favorevole',
+        'Brischetto et al., 2021'),
+    ('danno_radicale',
+        'Temperatura del suolo oltre la soglia fisiologica di danno alla sopravvivenza radicale',
+        'Field et al., 2020');
 
 INSERT INTO regola_soglia (regola_codice, parametro, livello_rischio, operatore, valore_soglia, unita_misura, durata_minima_minuti, note) VALUES
     -- Stress idrico: due soglie, isteresi di 0.05 MPa applicata a runtime (non rappresentata qui)
     ('stress_idrico', 'psi_stem', 'moderato', '<', -1.2, 'MPa', NULL, 'Isteresi di uscita 0.05 MPa applicata a runtime'),
     ('stress_idrico', 'psi_stem', 'severo',   '<', -1.4, 'MPa', NULL, 'Isteresi di uscita 0.05 MPa applicata a runtime'),
 
-    -- Ondata di calore: soglia singola, nessun "severo" supportato dalla bibliografia consultata
-    ('ondata_di_calore', 'temperatura_aria', 'moderato', '>', 35.0, '°C', NULL, 'Isteresi di uscita 1°C applicata a runtime'),
+    -- Ondata di calore: soglia moderata da temperatura dell'aria; soglia severa (40°C) da
+    -- temperatura fogliare su V. amurensis, non V. vinifera — applicata per convenzione
+    ('ondata_di_calore', 'temperatura_aria', 'moderato', '>', 35.0, 'C', NULL, 'Isteresi di uscita 1°C applicata a runtime'),
+    ('ondata_di_calore', 'temperatura_aria', 'severo', '>=', 40.0, 'C', NULL, 'Convenzionale, da tessuto fogliare su V. amurensis, Luo et al. 2011'),
 
     -- Tre dieci: tre condizioni simultanee, unico livello di rischio (moderato)
-    ('tre_dieci', 'temperatura_aria', 'moderato', '>=', 10.0, '°C', NULL, NULL),
+    ('tre_dieci', 'temperatura_aria', 'moderato', '>=', 10.0, 'C', NULL, NULL),
     ('tre_dieci', 'pioggia', 'moderato', '>=', 10.0, 'mm', 2880, 'Finestra di 48h: estremo più ampio dell''intervallo bibliografico 24-48h, scelta metodologica'),
     ('tre_dieci', 'germogli', 'moderato', '>=', 10.0, 'cm', NULL, 'Dato fenologico manuale, non da sensore: v. parcella.lunghezza_germoglio_cm'),
 
     -- Sunburn: soglia di ingresso + quattro coppie soglia/durata di dose letale (LT50)
-    ('sunburn', 'temperatura_bacca', 'moderato', '>=', 45.00, '°C', NULL, 'Isteresi di uscita 1°C; range di rischio 45-49°C'),
-    ('sunburn', 'temperatura_bacca', 'severo',   '>=', 53.79, '°C', 15, 'Dose letale (LT50), Schmidt et al. 2023'),
-    ('sunburn', 'temperatura_bacca', 'severo',   '>=', 49.94, '°C', 30, 'Dose letale (LT50), Schmidt et al. 2023'),
-    ('sunburn', 'temperatura_bacca', 'severo',   '>=', 47.82, '°C', 60, 'Dose letale (LT50), Schmidt et al. 2023'),
-    ('sunburn', 'temperatura_bacca', 'severo',   '>=', 47.06, '°C', 90, 'Dose letale (LT50), Schmidt et al. 2023');
+    ('sunburn', 'temperatura_bacca', 'moderato', '>=', 45.00, 'C', NULL, 'Isteresi di uscita 1°C; range di rischio 45-49°C'),
+    ('sunburn', 'temperatura_bacca', 'severo',   '>=', 53.79, 'C', 15, 'Dose letale (LT50), Schmidt et al. 2023'),
+    ('sunburn', 'temperatura_bacca', 'severo',   '>=', 49.94, 'C', 30, 'Dose letale (LT50), Schmidt et al. 2023'),
+    ('sunburn', 'temperatura_bacca', 'severo',   '>=', 47.82, 'C', 60, 'Dose letale (LT50), Schmidt et al. 2023'),
+    ('sunburn', 'temperatura_bacca', 'severo',   '>=', 47.06, 'C', 90, 'Dose letale (LT50), Schmidt et al. 2023'),
+    
+    -- Svernamento oospore: due soglie (minima e massima), unico livello di rischio
+    ('svernamento_oospore', 'temperatura_suolo', 'moderato', '>=', 12.0, 'C', NULL, 'Soglia minima di germinazione, Si Ammour et al. 2020'),
+    ('svernamento_oospore', 'temperatura_suolo', 'moderato', '<=', 32.0, 'C', NULL, 'Soglia di inibizione, Si Ammour et al. 2020'),
+
+    -- Infezione secondaria: tre condizioni simultanee, unico livello di rischio.
+    -- Semplificazione dichiarata: il modello di Brischetto definisce "ora umida" come
+    -- umidita_aria >=80% OPPURE pioggia >0mm OPPURE bagnatura_fogliare >30min (un OR fra tre
+    -- segnali diversi); qui si usa il solo bagnatura_fogliare come segnale di bagnatura,
+    -- rinunciando alla componente OR con umidità/pioggia. La soglia del 40% è una convenzione
+    -- di questo progetto (non da Brischetto direttamente), scelta per intercettare le notti
+    -- di rugiada tipiche generate dal simulatore oltre alla pioggia — sullo stesso piano
+    -- dichiarativo della soglia convenzionale di umidità 90% già usata per Goidanich.
+    ('infezione_secondaria', 'bagnatura_fogliare', 'moderato', '>=', 40.0, '%', 120, 'Soglia di bagnatura convenzionale (non da Brischetto); durata minima 2h all''ottimo, Brischetto et al. 2021'),
+    ('infezione_secondaria', 'temperatura_aria', 'moderato', '>=', 4.0, 'C', NULL, 'Temperatura minima per l''infezione, Brischetto et al. 2021'),
+    ('infezione_secondaria', 'temperatura_aria', 'moderato', '<=', 30.2, 'C', NULL, 'Temperatura massima per l''infezione, Brischetto et al. 2021'),
+    -- Danno radicale: soglia fisiologica, distinta da svernamento_oospore (fitosanitaria) —
+    -- stesso parametro temperatura_suolo usato per due scopi diversi
+    ('danno_radicale', 'temperatura_suolo', 'severo', '>=', 35.0, 'C', NULL, 'Soglia di danno radicale, Field et al. 2020');
 
 -- =====================================================================
 -- Seed: catalogo delle azioni di mitigazione e relative applicabilità per regola
@@ -245,11 +294,11 @@ INSERT INTO azione_mitigazione (codice, descrizione, fonte_bibliografica) VALUES
     ('nebulizzazione', 'Raffrescamento per nebulizzazione della chioma/bacca', NULL),
     ('trattamento_fitosanitario', 'Trattamento fitosanitario mirato (peronospora)', NULL),
     ('applicazione_caolino', 'Film di particelle di caolino sulla bacca, effetto schermante/riflettente',
-        'Agriculture 12(4)491; Horticulturae 11(2)110; Horticulturae 12(5)554; Scientia Horticulturae 111595'),
+        'Studi 2016-2024 su caolino in viticoltura'),
     ('rete_ombreggiante', 'Rete ombreggiante al 30-70% sulla fascia produttiva',
-        'Agriculture 12(4)491; Horticulturae 11(2)110'),
+        'Studi 2016-2024 su mitigazione sunburn in viticoltura'),
     ('applicazione_zeolite', 'Applicazione di zeoliti in combinazione con irrigazione in fase di maturazione',
-        'Studio Università di Bologna 2024 su cv. Sangiovese (PMC11310163)');
+        'Studio Univ. Bologna 2024, cv. Sangiovese');
 
 INSERT INTO regola_azione (regola_codice, azione_codice, note) VALUES
     ('stress_idrico', 'irrigazione_soccorso', NULL),
@@ -257,6 +306,6 @@ INSERT INTO regola_azione (regola_codice, azione_codice, note) VALUES
     ('ondata_di_calore', 'nebulizzazione',
         'Sistema di nebulizzazione automatico attivato a 35°C su Sangiovese/Montepulciano, Valentini et al. 2024'),
     ('sunburn', 'nebulizzazione', 'Unica azione oggi effettivamente scelta da MappatoreAzione per questa regola'),
-    ('sunburn', 'applicazione_caolino', 'Bacche fino a 6-7,6°C più fredde del controllo non trattato, Agriculture 12(4)491'),
+    ('sunburn', 'applicazione_caolino', 'Bacche fino a 6-7,6°C più fredde del controllo non trattato'),
     ('sunburn', 'rete_ombreggiante', 'Studiata in combinazione con il caolino negli stessi due studi'),
     ('sunburn', 'applicazione_zeolite', 'Riduce necrosi e shrivel se combinata con irrigazione in fase di maturazione');

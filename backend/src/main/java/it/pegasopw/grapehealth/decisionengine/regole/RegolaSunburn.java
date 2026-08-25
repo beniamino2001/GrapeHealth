@@ -1,5 +1,6 @@
 package it.pegasopw.grapehealth.decisionengine.regole;
 
+import it.pegasopw.grapehealth.decisionengine.cache.CacheSoglieRegole;
 import it.pegasopw.grapehealth.decisionengine.model.dto.MisurazioneMessage;
 import it.pegasopw.grapehealth.decisionengine.model.evento.AllertaEvent;
 import it.pegasopw.grapehealth.decisionengine.stato.StatoRischio;
@@ -10,25 +11,33 @@ import java.time.Instant;
 import java.util.Objects;
 import java.util.Optional;
 
+/**
+ * Scottatura (sunburn) da esposizione della bacca. Soglia di ingresso nel
+ * range di rischio ("moderato") e le quattro coppie soglia/durata di dose
+ * letale ("severo") lette a runtime da regola_soglia: la prima da Gambetta
+ * et al. (2021), le quattro coppie da Schmidt et al. (2023) — più lunga
+ * l'esposizione, più bassa la soglia di dose letale. Isteresi di 1°C in
+ * uscita dal range di rischio — non presente come colonna in regola_soglia,
+ * resta costante Java.
+ */
 @Component
 public class RegolaSunburn implements RegolaRischio {
 
     private static final String TIPO = "sunburn";
     private static final String PARAMETRO = "temperatura_bacca";
-
-    // Soglia di ingresso nel range di rischio definito in "Gambetta et al. 2021", ovvero 45-49°C
-    private static final double SOGLIA_MODERATO = 45.0;
     private static final double ISTERESI_USCITA = 1.0;
 
     private record SogliaLetale(double temperatura, Duration durataMinima) {}
 
-    // Soglie letali dipendenti dalla durata di esposizione (Schmidt et al. 2023): più lunga l'esposizione, più bassa la soglia di dose letale.
-    private static final SogliaLetale[] SOGLIE_LETALI = {
-            new SogliaLetale(53.79, Duration.ofMinutes(15)),
-            new SogliaLetale(49.94, Duration.ofMinutes(30)),
-            new SogliaLetale(47.82, Duration.ofMinutes(60)),
-            new SogliaLetale(47.06, Duration.ofMinutes(90)),
-    };
+    private final double sogliaModerato;
+    private final SogliaLetale[] soglieLetali;
+
+    public RegolaSunburn(CacheSoglieRegole cacheSoglieRegole) {
+        this.sogliaModerato = cacheSoglieRegole.sogliaUnica(TIPO, PARAMETRO, "moderato").getValoreSoglia();
+        this.soglieLetali = cacheSoglieRegole.soglieMultiple(TIPO, PARAMETRO, "severo").stream()
+                .map(s -> new SogliaLetale(s.getValoreSoglia(), Duration.ofMinutes(s.getDurataMinimaMinuti())))
+                .toArray(SogliaLetale[]::new);
+    }
 
     @Override
     public boolean isApplicabile(MisurazioneMessage m) {
@@ -48,17 +57,17 @@ public class RegolaSunburn implements RegolaRischio {
         String livelloPrecedente = stato.livelloRischio(chiave);
         String nuovoLivello;
 
-        if (valore < SOGLIA_MODERATO - ISTERESI_USCITA) {
+        if (valore < sogliaModerato - ISTERESI_USCITA) {
             stato.terminaEpisodio(chiaveEpisodio);
             nuovoLivello = null;
-        } else if (valore < SOGLIA_MODERATO && livelloPrecedente == null) {
+        } else if (valore < sogliaModerato && livelloPrecedente == null) {
             nuovoLivello = null;
         } else {
             stato.iniziaEpisodio(chiaveEpisodio, ora);
             Duration durata = Duration.between(stato.inizioEpisodio(chiaveEpisodio), ora);
 
             boolean severo = false;
-            for (SogliaLetale soglia : SOGLIE_LETALI) {
+            for (SogliaLetale soglia : soglieLetali) {
                 if (valore >= soglia.temperatura() && !durata.minus(soglia.durataMinima()).isNegative()) {
                     severo = true;
                     break;

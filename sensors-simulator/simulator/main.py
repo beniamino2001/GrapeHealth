@@ -33,7 +33,7 @@ import yaml
 from dotenv import load_dotenv
 
 from simulator.clock import SimulatedClock
-from simulator.generator import StatoParcella, genera_letture_nodo, genera_temp_aria
+from simulator.generator import StatoParcella, genera_letture_nodo, genera_temp_aria, genera_velocita_vento
 from simulator.mqtt_client import GrapeHealthMqttClient
 from simulator.state import carica_stato_sessione, elimina_stato_sessione, salva_stato_sessione
 
@@ -49,9 +49,67 @@ CONFIG_PATH = Path(__file__).resolve().parent.parent / "config" / "nodi.yaml"
 # non sfugge silenziosamente alla stessa protezione).
 SCENARI_VALIDI = ("normale", "stress_idrico", "ondata_di_calore")
 COLORI_BACCA_VALIDI = ("nero", "bianco")
-TIPI_NODO_VALIDI = ("meteo", "idrico", "bacca")
+TIPI_NODO_VALIDI = ("meteo", "idrico", "bacca", "suolo")
 
 TOPIC_PREFIX_ATTESO = "grapehealth"
+
+
+def avviso_time_scale(time_scale: float) -> str | None:
+    """Messaggio da loggare quando time_scale diverge da 1, None altrimenti.
+    Funzione pura (nessun logging al suo interno) per poter verificare il
+    contenuto del messaggio senza dover eseguire main()."""
+    if time_scale == 1:
+        return None
+    return (
+        f"time_scale={time_scale}: i timestamp pubblicati si allontaneranno "
+        f"rapidamente dall'ora reale di questa macchina. Qualunque sistema a "
+        f"valle che confronta questi dati con l'orologio reale del proprio "
+        f"ambiente invece che con l'ultimo timestamp osservato nel flusso "
+        f"otterrà risultati vuoti o incoerenti: non è un malfunzionamento, è "
+        f"la conseguenza diretta di time_scale != 1."
+    )
+
+
+PAVIMENTO_SLEEP_REALE_SECONDI = 0.1
+
+
+def avviso_intervallo_sovrascritto(intervallo_pubblicazione_secondi: float, time_scale: float) -> str | None:
+    """Messaggio da loggare quando il pavimento minimo su sleep_reale (v.
+    ciclo principale di main()) sta sovrascrivendo silenziosamente
+    l'intervallo configurato, None altrimenti. A time_scale abbastanza alti,
+    intervallo_pubblicazione_secondi/time_scale scende sotto quel pavimento:
+    il ciclo continua comunque a dormire il minimo consentito, ma l'intervallo
+    simulato realmente attraversato fra due tick diventa
+    PAVIMENTO_SLEEP_REALE_SECONDI * time_scale, non più quello dichiarato in
+    config — una condizione che resta vera per una manciata di ore simulate
+    genera così molti più tick, e molte più occasioni di riallerta per una
+    regola priva di isteresi, di quanti l'intervallo configurato lascerebbe
+    pensare."""
+    sleep_reale_nominale = intervallo_pubblicazione_secondi / time_scale
+    if sleep_reale_nominale >= PAVIMENTO_SLEEP_REALE_SECONDI:
+        return None
+    intervallo_effettivo = PAVIMENTO_SLEEP_REALE_SECONDI * time_scale
+    return (
+        f"intervallo_pubblicazione_secondi={intervallo_pubblicazione_secondi} "
+        f"con time_scale={time_scale} richiederebbe di dormire "
+        f"{sleep_reale_nominale:.4f}s fra un tick e l'altro, sotto il "
+        f"pavimento di {PAVIMENTO_SLEEP_REALE_SECONDI}s: l'intervallo "
+        f"realmente attraversato in secondi simulati sarà "
+        f"{intervallo_effettivo:.0f}s, non {intervallo_pubblicazione_secondi}. "
+        f"Non è un malfunzionamento, ma un valore di config che a questo "
+        f"time_scale non descrive più la cadenza reale delle pubblicazioni."
+    )
+
+
+def valore_effettivo(da_cli, da_config):
+    """args.scenario/args.time_scale sono None se non passati da riga di
+    comando, mai 0 o stringa vuota (argparse type=float li accetta come
+    valori validi, choices= esclude una stringa vuota per --scenario). `or`
+    fallirebbe silenziosamente su --time-scale 0 (0 è falsy in Python),
+    ignorando un valore esplicitamente passato a favore del default di
+    config — `is not None` è la scelta corretta qui.
+    """
+    return da_cli if da_cli is not None else da_config
 
 
 def carica_config() -> dict:
@@ -59,31 +117,28 @@ def carica_config() -> dict:
         return yaml.safe_load(f)
 
 
-def valida_config(config: dict, scenario_effettivo: str) -> None:
-    """Verifica all'avvio i valori letti da config/nodi.yaml che il resto del
-    codice si limita a confrontare per uguaglianza. Un typo
-    plausibile (es.: 'Nero' invece di 'nero') non produce alcun
-    errore a runtime: viene silenziosamente interpretato come il valore
-    "else" del confronto (colore_bacca sconosciuto -> trattato come bianco,
-    offset di temp_bacca inferiore di 4°C; scenario sconosciuto -> nessuna
-    delle condizioni scenario-specifiche scatta, comportamento di default
-    equivalente a 'normale'), con differenze fino a 5-8°C sui valori generati senza
-    alcun segnale visibile.
+def valida_config(config: dict, scenario_effettivo: str, time_scale_effettivo: float) -> None:
+    """Verifica all'avvio i valori che il resto del codice si limita a
+    confrontare per uguaglianza. Un typo (es. 'Nero' invece di 'nero') non
+    produce errori a runtime: cade silenziosamente nel ramo "else" del
+    confronto, con differenze fino a 5-8°C sui valori generati senza alcun
+    segnale visibile.
 
-    Include anche mqtt.topic_prefix, è un contratto con un valore
-    hardcoded lato Java su DUE moduli (INPUT_ROUTING_KEY in
-    backend/.../decisionengine/config/RabbitConfig.java e
-    MISURAZIONI_ROUTING_KEY nell'equivalente in persistence), entrambi con
-    binding "grapehealth.#". Cambiarlo qui da solo instraderebbe silenziosamente OGNI messaggio
-    pubblicato dal simulatore verso il nulla: nessun binding RabbitMQ
-    corrisponderebbe più, senza alcun errore, alcun log, alcuna coda di
-    dead-letter (che si applica solo ai messaggi già arrivati in coda e poi
-    rifiutati, non a quelli mai instradati).
+    mqtt.topic_prefix è un caso a parte: è hardcoded lato Java in due moduli
+    (RabbitConfig del decision engine e di persistence, routing key
+    "grapehealth.#"). Cambiarlo qui da solo instraderebbe silenziosamente
+    ogni messaggio verso il nulla — nessun binding corrisponderebbe più,
+    senza errori né dead-letter (che si applica solo a messaggi già in
+    coda, non a quelli mai instradati).
 
-    Solleva ValueError con un messaggio che identifica esattamente il campo,
-    il valore trovato e i valori ammessi, invece di un generico "config non
-    valida" che costringerebbe a rileggere l'intero file per capire cosa
-    correggere.
+    time_scale non passa per un confronto per uguaglianza come gli altri
+    campi, ma per una divisione (sleep_reale = intervallo/time_scale) e per
+    una moltiplicazione nell'orologio simulato: zero manderebbe in crash la
+    divisione, un valore negativo farebbe scorrere il tempo simulato
+    all'indietro, violando la garanzia di monotonicità di SimulatedClock.
+
+    Solleva ValueError con campo, valore trovato e valori ammessi, non un
+    generico "config non valida".
     """
     if scenario_effettivo not in SCENARI_VALIDI:
         raise ValueError(
@@ -91,6 +146,14 @@ def valida_config(config: dict, scenario_effettivo: str) -> None:
             f"config/nodi.yaml, simulazione.scenario, dato che --scenario "
             f"non è stato passato da riga di comando). Valori ammessi: "
             f"{', '.join(SCENARI_VALIDI)}."
+        )
+
+    if time_scale_effettivo <= 0:
+        raise ValueError(
+            f"simulazione.time_scale non valido: {time_scale_effettivo}. Deve "
+            f"essere un numero positivo: zero causerebbe una divisione per "
+            f"zero nel calcolo dell'intervallo reale fra letture, un valore "
+            f"negativo farebbe scorrere il tempo simulato all'indietro."
         )
 
     topic_prefix = config.get("mqtt", {}).get("topic_prefix")
@@ -142,18 +205,26 @@ def main():
     args = parse_args()
     config = carica_config()
 
-    scenario = args.scenario or config["simulazione"]["scenario"]
-    time_scale = args.time_scale or config["simulazione"]["time_scale"]
+    scenario = valore_effettivo(args.scenario, config["simulazione"]["scenario"])
+    time_scale = valore_effettivo(args.time_scale, config["simulazione"]["time_scale"])
     intervallo_sim = config["simulazione"]["intervallo_pubblicazione_secondi"]
     prefix = config["mqtt"]["topic_prefix"]
 
     # Fallisce subito e rumorosamente su un valore non riconosciuto, invece
-    # di lasciare che un typo produca dati silenziosamente sbagliati per
-    # l'intera durata della run.
-    valida_config(config, scenario)
+    # di lasciare che un typo (o uno zero) produca dati silenziosamente
+    # sbagliati, o un crash oscuro più avanti, per l'intera durata della run.
+    valida_config(config, scenario, time_scale)
 
     logger.info("Scenario attivo: %s | time_scale: %s | intervallo pubblicazione: %ss simulati",
                 scenario, time_scale, intervallo_sim)
+
+    messaggio_time_scale = avviso_time_scale(time_scale)
+    if messaggio_time_scale:
+        logger.warning(messaggio_time_scale)
+
+    messaggio_intervallo = avviso_intervallo_sovrascritto(intervallo_sim, time_scale)
+    if messaggio_intervallo:
+        logger.warning(messaggio_intervallo)
 
     if args.reset_sessione:
         elimina_stato_sessione()
@@ -192,7 +263,7 @@ def main():
             sp.ripristina_stato(stati_salvati[p["nome"]])
         stati[p["nome"]] = sp
 
-    sleep_reale = max(0.1, intervallo_sim / time_scale)
+    sleep_reale = max(PAVIMENTO_SLEEP_REALE_SECONDI, intervallo_sim / time_scale)
 
     try:
         while True:
@@ -202,6 +273,11 @@ def main():
                 stato = stati[parcella["nome"]]
                 stato.aggiorna_se_nuovo_giorno(now)
                 temp_aria_riferimento = genera_temp_aria(now, stato.scenario)
+                # calcolata una sola volta per parcella per tick e condivisa fra nodo meteo
+                # e nodo bacca, sullo stesso principio già applicato a temp_aria_riferimento:
+                # il raffreddamento da vento in genera_temp_bacca() deve usare lo stesso vento
+                # realmente pubblicato in questo istante, non un secondo campione indipendente.
+                velocita_vento_riferimento = genera_velocita_vento(now, stato.scenario)
 
                 for nodo in parcella["nodi"]:
                     letture = genera_letture_nodo(
@@ -210,6 +286,7 @@ def main():
                         stato=stato,
                         colore_bacca=parcella["colore_bacca"],
                         temp_aria_riferimento=temp_aria_riferimento,
+                        velocita_vento_riferimento=velocita_vento_riferimento,
                     )
                     for parametro, (valore, unita) in letture.items():
                         payload = {

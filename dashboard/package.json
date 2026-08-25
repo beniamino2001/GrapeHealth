@@ -1,0 +1,7 @@
+{
+  "name": "grapehealth-dashboard-tests",
+  "private": true,
+  "scripts": {
+    "test": "node --test js/api.test.js js/charts.test.js js/alerts.test.js js/stats.test.js js/main.test.js"
+  }
+}

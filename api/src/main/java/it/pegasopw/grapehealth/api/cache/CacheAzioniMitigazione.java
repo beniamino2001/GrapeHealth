@@ -14,6 +14,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+// Catalogo bibliografico delle azioni di mitigazione: sei azioni, sette
+// associazioni regola->azione. Tabelle di sola consultazione, popolate dal
+// seed e mai modificate a runtime: cache in memoria caricata una sola volta
+// all'avvio.
+
+// Tabella di riferimento fissa per l'intera sessione simulata: caricata una sola volta
+// all'avvio invece di essere interrogata a ogni richiesta. ConcurrentHashMap invece di
+// HashMap perche' le mappe sono lette concorrentemente da piu' richieste HTTP mentre vengono
+// popolate in carica(); nessuna scrittura avviene dopo l'avvio.
 @Component
 public class CacheAzioniMitigazione {
 

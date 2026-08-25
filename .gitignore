@@ -7,6 +7,7 @@ target/
 *.jar
 *.war
 .idea/
+__init__.py
 api/.mvn/
 *.iml
 __pycache__/

@@ -20,7 +20,7 @@ springdoc:
 
 logging:
   file:
-    name: ${user.home}/Downloads/grapehealth-api.log
+    name: ${SPRING_BOOT_LOGS_DIR:${user.home}/Downloads}/grapehealth-api.log
 
 server:
   port: 8084

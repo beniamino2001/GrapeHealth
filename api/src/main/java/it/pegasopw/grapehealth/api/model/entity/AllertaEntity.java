@@ -23,12 +23,19 @@ public class AllertaEntity {
     @Column(name = "nodo_id")
     private Long nodoId;
     
+    // Riferimento diretto alla parcella, non derivato dal nodo fisico "meteo"
+    // usato come proxy. Nullable: una parcella non risolvibile non blocca la
+    // scrittura lato persistence.
     @Column(name = "parcella_id")
     private Long parcellaId;
 
     @Column(nullable = false)
     private String descrizione;
 
+    // Vera FK verso regola(codice). Il campo Java segue il nome della colonna;
+    // il nome esposto in AllertaDTO resta invece "regolaScatenante" per
+    // continuita' con la dashboard, gia' scritta contro quel contratto (v.
+    // AllertaMapper).
     @Column(name = "regola_codice", nullable = false)
     private String regolaCodice;
 

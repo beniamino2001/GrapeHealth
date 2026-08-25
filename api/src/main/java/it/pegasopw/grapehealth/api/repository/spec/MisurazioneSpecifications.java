@@ -6,6 +6,8 @@ import org.springframework.data.jpa.domain.Specification;
 import java.time.Instant;
 import java.util.List;
 
+// Predicati JPA componibili per il filtro di /api/misurazioni. Stessa convenzione di
+// AllertaSpecifications: un valore nullo (o una lista vuota, per nodoIdIn) non filtra nulla.
 public final class MisurazioneSpecifications {
 
     private MisurazioneSpecifications() {

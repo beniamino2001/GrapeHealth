@@ -24,6 +24,11 @@ public class TrattamentoEntity {
     @Column
     private String note;
 
+    // trattamento.esito esiste nello schema (DEFAULT 'simulato') ma non e'
+    // mappata qui apposta: in questo sistema ogni trattamento e' per
+    // definizione simulato, nessun altro valore e' mai possibile, quindi il
+    // default del database basta e non serve un campo Java da valorizzare.
+
     public TrattamentoEntity() {
     }
 

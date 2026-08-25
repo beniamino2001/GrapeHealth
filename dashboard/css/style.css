@@ -124,6 +124,34 @@ body {
   color: var(--neutro-700);
 }
 
+/* Titolo di ogni sotto-categoria del pannello statistiche: un livello sopra i
+   titoli dei singoli grafici (.panel h4 sotto), non sotto lo stesso <h3> che
+   usavano prima insieme - la gerarchia dei tag ora rispecchia quella visiva. */
+.stat-categoria-titolo {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--verde-600);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0 0 0.75rem;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid var(--neutro-300);
+}
+
+.stat-categoria {
+  margin-bottom: 1.75rem;
+}
+
+.stat-categoria:last-child {
+  margin-bottom: 0;
+}
+
+.panel h4 {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--neutro-700);
+}
+
 /* --- Filtri --------------------------------------------------------------- */
 
 .filtro-form {
@@ -443,6 +471,36 @@ body {
   font-size: 0.65rem;
 }
 
+.badge-attivo {
+  background: var(--verde-100);
+  color: var(--verde-800);
+}
+
+.badge-inattivo {
+  background: var(--neutro-100);
+  color: var(--neutro-500);
+}
+
+.nodi-dettaglio {
+  margin-top: 1rem;
+}
+
+.nodi-dettaglio summary {
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--neutro-700);
+  padding: 0.3rem 0;
+}
+
+.nodi-dettaglio[open] summary {
+  margin-bottom: 0.6rem;
+}
+
+.nodi-dettaglio table {
+  margin-top: 0.4rem;
+}
+
 .hint {
   font-size: 0.86rem;
   color: var(--neutro-500);
@@ -637,6 +695,9 @@ body {
   margin-bottom: 0.7rem;
 }
 
+/* .filtri-risolte imposta display:flex con la stessa specificita' (0,1,0) di
+   questo selettore attributo: senza ripeterlo qui, un elemento nascosto con
+   l'attributo hidden tornerebbe comunque visibile invece di restare nascosto. */
 .filtri-risolte[hidden] {
   display: none;
 }

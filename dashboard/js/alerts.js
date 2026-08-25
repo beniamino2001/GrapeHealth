@@ -1,3 +1,7 @@
+// Lista e dettaglio delle allerte: tab Attive/Risolte con paginazione,
+// polling periodico delle attive, filtro per tipo dal grafico a ciambella, e
+// il pannello di dettaglio con la raccomandazione arricchita (soglie
+// bibliografiche, azioni alternative, esito dell'esecuzione simulata).
 const POLL_INTERVAL_MS = 12000;
 let pollTimer = null;
 
@@ -211,7 +215,7 @@ function renderRaccomandazione(r, allerta) {
 
   const badge = r.basedOnSimulatedExecution
     ? '<span class="badge badge-eseguita">Azione simulata eseguita</span>'
-    : '<span class="badge badge-teorica">Solo raccomandazione teorica</span>';
+    : '<span class="badge badge-teorica">Raccomandazione teorica</span>';
 
   const dettaglioAllerta = allerta ? `
     <p class="dettaglio-allerta">
@@ -279,15 +283,25 @@ function renderRaccomandazione(r, allerta) {
   `;
   })();
 
-  const alternative = (r.azioniAlternative || []);
+  // L'ordine con cui /api/raccomandazioni restituisce azioniAlternative non e' garantito da un
+  // ORDER BY esplicito lato api (verificato: CacheAzioniMitigazione.azioniPerRegola() restituisce
+  // l'ordine di lettura di regola_azione, non un ordine dichiarato) - oggi coincide con l'ordine
+  // di inserimento del seed, ma non e' un contratto su cui questo file possa fare affidamento.
+  // Il testo sotto dichiara che l'azione consigliata compare sempre per prima: per essere vero a
+  // prescindere da come arrivano i dati, l'ordine e' imposto qui, non presunto dalla risposta.
+  const alternative = (r.azioniAlternative || []).slice().sort((a, b) => {
+    if (a.codice === r.azioneConsigliata) return -1;
+    if (b.codice === r.azioneConsigliata) return 1;
+    return 0;
+  });
   const sezioneAlternative = alternative.length > 1 ? `
     <div class="azioni-alternative">
       <h4>Strategie alternative documentate in letteratura</h4>
-      <p class="hint">Il prototipo simula sempre e solo l'azione consigliata sopra: la bibliografia non indica un criterio per scegliere automaticamente tra le alternative, che restano quindi puramente informative.</p>
+      <p class="hint">L'azione consigliata è sempre la prima in alto in quanto la bibliografia non indica un criterio per scegliere automaticamente tra le alternative presenti.</p>
       ${alternative.map(alt => `
         <div class="azione-alternativa${alt.codice === r.azioneConsigliata ? ' azione-corrente' : ''}">
           <strong>${alt.descrizione}</strong>
-          ${alt.codice === r.azioneConsigliata ? '<span class="badge badge-corrente">azione applicata in questo prototipo</span>' : ''}
+          ${alt.codice === r.azioneConsigliata ? '<span class="badge badge-corrente">azione applicata</span>' : ''}
           ${alt.nota ? `<p class="azione-nota">${alt.nota}</p>` : ''}
           ${alt.fonteBibliografica ? `<p class="azione-fonte">Fonte: ${alt.fonteBibliografica}</p>` : ''}
         </div>
@@ -316,4 +330,13 @@ function renderRaccomandazione(r, allerta) {
 function startPolling() {
   refreshAllerteAttive();
   pollTimer = setInterval(refreshAllerteAttive, POLL_INTERVAL_MS);
+}
+
+// V. il commento equivalente in api.js per il perche' di questo blocco: nel
+// browser e' un no-op (nessun `module`), in Node espone ad alerts.test.js le
+// due sole funzioni di questo file che non toccano il DOM. testoRisoluzionePrevista
+// usa a sua volta formattaDurata (api.js): chi importa questo file nei test deve
+// prima richiedere api.js, cosi' come nel browser api.js e' caricato per primo.
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { formattaOperatore, testoRisoluzionePrevista };
 }

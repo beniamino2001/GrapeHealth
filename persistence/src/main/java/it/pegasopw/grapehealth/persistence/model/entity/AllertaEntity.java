@@ -26,24 +26,37 @@ public class AllertaEntity {
     @Column(name = "nodo_id")
     private Long nodoId;
 
+    // Riferimento diretto alla parcella (regole valutate a livello di
+    // parcella, non di singolo nodo, come "tre dieci"). Nullable come
+    // nodo_id: una parcella non risolvibile non deve bloccare la scrittura
+    // dell'allerta, e' un arricchimento, non un dato indispensabile.
     @Column(name = "parcella_id")
     private Long parcellaId;
 
     @Column(nullable = false)
     private String descrizione;
 
+    // Foreign key verso regola(codice): usa lo stesso dominio di valori di
+    // AllertaEvent.tipo(), es. "stress_idrico".
     @Column(name = "regola_codice", nullable = false)
     private String regolaCodice;
 
     @Column(name = "generata_il", nullable = false)
     private Instant generataIl;
 
+    // Persiste la scadenza pianificata da SchedulerRisoluzioneAllerte, cosi'
+    // che un riavvio del processo possa ricostruire le pianificazioni
+    // pendenti leggendo dal database invece di perderle.
     @Column(name = "risoluzione_pianificata_il")
     private Instant risoluzionePianificataIl;
 
     @Column(name = "risolta_il")
     private Instant risoltaIl;
 
+    // Il default e' impostato qui e non lasciato al DEFAULT del database:
+    // Hibernate invia comunque un valore esplicito per ogni colonna mappata
+    // in insert, quindi senza questo default andrebbe un NULL che viola il
+    // vincolo NOT NULL della colonna.
     @Column
     private String stato = "attiva";
 

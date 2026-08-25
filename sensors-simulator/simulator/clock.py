@@ -1,13 +1,16 @@
 """
-Orologio simulato per disaccoppiare il tempo "di dominio" (usato per i modelli
-di generazione dei dati: ora del giorno, giorni senza pioggia, ecc.) dal
-tempo reale di esecuzione dello script.
+Orologio simulato: disaccoppia il tempo "di dominio" (ora del giorno, ecc.)
+dal tempo reale di esecuzione. Con time_scale=1 coincidono; con time_scale>1
+un secondo reale vale time_scale secondi simulati (utile per attraversare
+in fretta un ciclo diurno o più giorni senza pioggia).
 
-Con time_scale=1 il tempo simulato coincide col tempo reale (comodo per
-lasciare il simulatore acceso per ore/giorni e osservare il comportamento
-"vero"). Con time_scale>1 un secondo reale vale time_scale secondi
-simulati: utile nei test rapidi per attraversare in pochi minuti un ciclo
-diurno completo o più giorni consecutivi senza pioggia.
+Avviso per chi consuma timestamp_rilevazione: con time_scale != 1 il valore
+si allontana rapidamente dall'ora reale della macchina. Un confronto con
+"adesso" preso dall'orologio reale (es. `new Date()`, `datetime.now()` non
+esplicito) invece che dall'ultimo timestamp osservato nel flusso troverà
+risultati vuoti non appena time_scale supera 1: non è un bug, è la
+conseguenza diretta di cosa time_scale significa. Il riferimento ad
+"adesso" deve venire dai dati, mai dall'orologio del consumatore.
 """
 
 import time

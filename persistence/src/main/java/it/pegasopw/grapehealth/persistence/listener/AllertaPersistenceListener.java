@@ -70,16 +70,23 @@ public class AllertaPersistenceListener {
                 evento.timestamp());
 
         allerta = allertaRepository.save(allerta);
+        Long allertaId = allerta.getId();
         log.info("Allerta persistita: id={}, tipo={}, livello={}, nodoId={}, parcellaId={}",
-                allerta.getId(), evento.tipo(), evento.livelloRischio(), nodoId, parcellaId);
+                allertaId, evento.tipo(), evento.livelloRischio(), nodoId, parcellaId);
 
-        TrattamentoEntity trattamento = new TrattamentoEntity(
-                allerta.getId(),
-                mappatoreAzione.tipoAzione(evento),
-                mappatoreAzione.note(evento));
-
-        trattamentoRepository.save(trattamento);
-        log.info("Trattamento persistito: allertaId={}, tipoAzione={}", allerta.getId(), trattamento.getTipoAzione());
+        // svernamento_oospore e infezione_secondaria non hanno un'azione
+        // catalogata (v. MappatoreAzione): per queste due l'allerta viene
+        // comunque persistita e pianificata per la risoluzione come tutte le
+        // altre, ma senza un trattamento collegato.
+        mappatoreAzione.tipoAzione(evento).ifPresentOrElse(
+                tipoAzione -> {
+                    TrattamentoEntity trattamento = new TrattamentoEntity(
+                            allertaId, tipoAzione, mappatoreAzione.note(evento));
+                    trattamentoRepository.save(trattamento);
+                    log.info("Trattamento persistito: allertaId={}, tipoAzione={}", allertaId, tipoAzione);
+                },
+                () -> log.info("Nessuna azione catalogata per tipo={}: solo monitoraggio, allertaId={}",
+                        evento.tipo(), allertaId));
 
         // La risoluzione dell'allerta è pianificata con un ritardo REALE,
         // non applicata qui nella stessa transazione: l'allerta resta "attiva" e visibile

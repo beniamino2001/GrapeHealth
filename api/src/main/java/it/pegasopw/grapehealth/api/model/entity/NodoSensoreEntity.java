@@ -17,21 +17,22 @@ public class NodoSensoreEntity {
     @Column(nullable = false, unique = true)
     private String codice;
     
+    // FK verso il catalogo parcella. Risolta in nome tramite CacheParcelle.
     @Column(name = "parcella_id", nullable = false)
     private Long parcellaId;
 
     @Column(name = "tipo_nodo", nullable = false)
     private String tipoNodo;
 
-    @Column
-    private Double latitudine;
-
-    @Column
-    private Double longitudine;
-
+    // Scritto e mantenuto da uno script di sincronizzazione esterno (init_nodi_db.py): un nodo
+    // rimosso dalla configurazione viene marcato attivo=false, non cancellato. Il decision engine
+    // lo usa gia' per escludere le misurazioni di nodi disattivati dalla valutazione delle regole;
+    // qui viene solo mostrato, non applicato ad alcuna logica di filtro.
     @Column(nullable = false)
     private boolean attivo;
 
+    // Puro metadato di inventario, nessuna regola bibliografica lo consulta: utile solo per
+    // contesto operativo, da quanto tempo un nodo è in servizio.
     @Column(name = "data_installazione", nullable = false)
     private LocalDate dataInstallazione;
 
@@ -39,8 +40,6 @@ public class NodoSensoreEntity {
     public String getCodice() { return codice; }
     public Long getParcellaId() { return parcellaId; }
     public String getTipoNodo() { return tipoNodo; }
-    public Double getLatitudine() { return latitudine; }
-    public Double getLongitudine() { return longitudine; }
     public boolean isAttivo() { return attivo; }
     public LocalDate getDataInstallazione() { return dataInstallazione; }
 }

@@ -22,6 +22,11 @@ import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+// Costruisce le raccomandazioni a partire da un'allerta: azione consigliata, testo
+// descrittivo, arricchimento bibliografico (descrizione/fonte della regola, soglie, azioni
+// alternative) e, se esiste, l'esito dell'esecuzione simulata collegata. I tre metodi
+// pubblici differiscono solo per come selezionano le allerte di partenza; costruisci()
+// concentra tutta la logica di arricchimento, comune a tutti e tre.
 @Service
 @Transactional(readOnly = true)
 public class RaccomandazioniService {
@@ -52,6 +57,9 @@ public class RaccomandazioniService {
         return costruisci(allerta, trattamento);
     }
 
+    // Un'unica query su trattamento per l'intero insieme di allerte attive, non una per
+    // allerta: evita il pattern N+1 che si avrebbe chiamando costruisci() dentro un ciclo
+    // con una query per iterazione.
     public List<RaccomandazioneDTO> perAllerteAttive() {
         List<AllertaEntity> allerteAttive = allertaRepository.findAll((root, query, cb) ->
                 cb.equal(root.get("stato"), "attiva"));
@@ -66,6 +74,9 @@ public class RaccomandazioniService {
                 .toList();
     }
 
+    // Comportamento "best effort": un id non trovato viene semplicemente ignorato, non fa
+    // fallire l'intera richiesta. Adatto a un caso d'uso batch, dove l'obiettivo e' "dammi
+    // quello che hai per questi id", non recuperare una singola risorsa puntuale.
     public List<RaccomandazioneDTO> perAllerteMultiple(List<Long> allertaIds) {
         List<AllertaEntity> allerte = allertaRepository.findAllById(allertaIds);
 
@@ -80,7 +91,7 @@ public class RaccomandazioniService {
     }
 
     private RaccomandazioneDTO costruisci(AllertaEntity allerta, Optional<TrattamentoEntity> trattamento) {
-        String azioneConsigliata = mappatoreRaccomandazione.azioneConsigliata(allerta);
+        String azioneConsigliata = mappatoreRaccomandazione.azioneConsigliata(allerta).orElse(null);
         String testo = mappatoreRaccomandazione.testoRaccomandazione(allerta);
 
         RegolaEntity regola = cacheRegole.trovaPerCodice(allerta.getRegolaCodice());

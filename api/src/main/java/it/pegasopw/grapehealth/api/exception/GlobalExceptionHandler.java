@@ -7,6 +7,11 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
+// Traduce le eccezioni del livello applicativo in risposte JSON coerenti, stesso formato
+// ErroreResponse per tutte. In ordine: input che viola un vincolo applicativo (400), risorsa
+// richiesta ma inesistente (404), qualunque altro errore non previsto (500, senza riversare
+// il messaggio originale nella risposta), parametri di query che Spring non riesce a
+// convertire nel tipo atteso (400, con nome parametro/tipo/valore ricevuto nel messaggio).
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 

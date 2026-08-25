@@ -11,6 +11,8 @@ public final class AllertaMapper {
     private AllertaMapper() {
     }
 
+    // A differenza di MisurazioneMapper, qui la parcella si risolve direttamente
+    // da allerta.parcellaId, senza passare dal nodo.
     public static AllertaDTO toDTO(AllertaEntity entita, CacheNodi cacheNodi, CacheParcelle cacheParcelle) {
         NodoSensoreEntity nodo = cacheNodi.trovaPerId(entita.getNodoId());
         String parcellaNome = cacheParcelle.nomePerId(entita.getParcellaId());
@@ -25,7 +27,6 @@ public final class AllertaMapper {
                 entita.getGenerataIl(),
                 entita.getRisoltaIl(),
                 entita.getStato(),
-                entita.getRisoluzionePianificataIl()
-        );
+                entita.getRisoluzionePianificataIl());
     }
 }

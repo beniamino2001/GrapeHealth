@@ -1,4 +1,8 @@
 // Base URL del modulo `api` su porta 8084 con la config CORS già abilitato per le GET su localhost:*
+// Layer di accesso alla REST API del modulo `api`: un'unica funzione fetch
+// condivisa (fetchJSON), la normalizzazione della risposta (array semplice o
+// pagina Spring Data), e le cinque chiamate che il resto della dashboard usa
+// per parlare col backend.
 const API_BASE = 'http://localhost:8084/api';
 
 function buildQuery(params) {
@@ -46,6 +50,9 @@ const GrapeHealthAPI = {
   getParcelle() {
     return fetchJSON(`${API_BASE}/parcelle`);
   },
+  getNodi() {
+    return fetchJSON(`${API_BASE}/nodi`);
+  },
 };
 
 // Funzione utile a formattare una durata in ms in una stringa leggibile, con granularità decrescente (ore > minuti > secondi).
@@ -58,4 +65,18 @@ function formattaDurata(ms) {
   const ore = Math.floor(minuti / 60);
   if (ore === 0) return `${minuti}m ${secondi}s`;
   return `${ore}h ${minuti % 60}m`;
+}
+
+// Espone le funzioni pure di questo file ai test Node (v. api.test.js). Nel
+// browser questo file resta uno script classico caricato con <script src>,
+// non un modulo: `module` non esiste in quel contesto, quindi il blocco
+// sottostante non viene mai eseguito e non cambia in alcun modo il
+// comportamento della pagina. `global.formattaDurata` replica per i test ciò
+// che nel browser è già vero per costruzione — tutti gli script condividono
+// `window` come scope globale, quindi alerts.js può chiamare formattaDurata()
+// senza importarla esplicitamente; in Node, dove ogni file richiesto ha un
+// proprio scope isolato, questa riga è ciò che rende visibile la stessa cosa.
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { buildQuery, estraiContenuto, formattaDurata };
+  global.formattaDurata = formattaDurata;
 }

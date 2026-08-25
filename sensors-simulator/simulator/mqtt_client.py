@@ -21,15 +21,25 @@ class GrapeHealthMqttClient:
         self._client_id = client_id
         self._status_topic = f"{status_topic_prefix}/{client_id}"
 
+        # Se RABBITMQ_USER/RABBITMQ_PASS non sono nell'ambiente, interrompe
+        # subito con un messaggio esplicativo invece di connettersi in
+        # silenzio con una credenziale condivisa in chiaro — stesso principio
+        # già applicato a POSTGRES_USER/POSTGRES_PASSWORD in init_nodi_db.py.
+        try:
+            utente = os.environ["RABBITMQ_USER"]
+            password = os.environ["RABBITMQ_PASS"]
+        except KeyError as exc:
+            raise RuntimeError(
+                f"Variabile d'ambiente {exc} mancante: esegui ./scripts/setup-credentials.sh "
+                "dalla root del repository e ricarica l'ambiente (.env) prima di rilanciare."
+            ) from exc
+
         self.client = mqtt.Client(
             callback_api_version=mqtt.CallbackAPIVersion.VERSION2,
             client_id=client_id,
             protocol=mqtt.MQTTv311,
         )
-        self.client.username_pw_set(
-            os.environ.get("RABBITMQ_USER", "grapehealth"),
-            os.environ.get("RABBITMQ_PASS", "grapehealth"),
-        )
+        self.client.username_pw_set(utente, password)
         self.client.will_set(self._status_topic, payload="offline", qos=1, retain=True)
         self.client.reconnect_delay_set(min_delay=1, max_delay=30)
 

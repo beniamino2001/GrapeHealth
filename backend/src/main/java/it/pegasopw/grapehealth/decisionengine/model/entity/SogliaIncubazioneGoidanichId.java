@@ -6,6 +6,12 @@ import jakarta.persistence.Embeddable;
 import java.io.Serializable;
 import java.util.Objects;
 
+/**
+ * Chiave composita di soglia_incubazione_goidanich: la tabella di Goidanich
+ * non lega la velocità di incubazione a un valore continuo di umidità, ma
+ * distingue solo due fasce (bassa/alta, oltre una soglia convenzionale) —
+ * per questo umiditaAlta è un booleano e non una percentuale.
+ */
 @Embeddable
 public class SogliaIncubazioneGoidanichId implements Serializable {
 

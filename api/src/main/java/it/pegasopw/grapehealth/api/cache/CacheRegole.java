@@ -14,6 +14,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+// Tabella di riferimento fissa per l'intera sessione simulata: caricata una sola volta
+// all'avvio invece di essere interrogata a ogni richiesta. ConcurrentHashMap invece di
+// HashMap perche' le mappe sono lette concorrentemente da piu' richieste HTTP mentre vengono
+// popolate in carica(); nessuna scrittura avviene dopo l'avvio.
 @Component
 public class CacheRegole {
 

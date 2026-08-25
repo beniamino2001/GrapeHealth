@@ -8,6 +8,14 @@ import it.pegasopw.grapehealth.decisionengine.stato.StatoRischio;
 import java.util.Objects;
 import java.util.Optional;
 
+/**
+ * Fattorizza la logica comune alle regole a soglia fissa con isteresi
+ * (stress idrico, ondata di calore): calcolo della chiave di stato per nodo,
+ * confronto col livello precedente, deduplica delle ripubblicazioni,
+ * costruzione dell'evento. Le sottoclassi forniscono solo il tipo di regola,
+ * il parametro osservato, le soglie numeriche (tramite SogliaConIsteresi) e
+ * il testo del messaggio — non reimplementano la logica di transizione.
+ */
 public abstract class RegolaSogliaConIsteresi implements RegolaRischio {
 
     private final String tipo;
@@ -49,10 +57,16 @@ public abstract class RegolaSogliaConIsteresi implements RegolaRischio {
 
         return Optional.of(new AllertaEvent(
                 tipo, nuovoLivello, m.nodo(), m.parcella(), m.parametro(), valore,
-                messaggio(valore, nuovoLivello), m.timestampRilevazione()));
+                messaggio(m, stato, nuovoLivello), m.timestampRilevazione()));
     }
 
-    protected abstract String messaggio(double valore, String livello);
+    /**
+     * Costruisce il testo dell'allerta. Riceve la misurazione e lo stato
+     * completi, non solo valore e livello, perché alcune sottoclassi (es.
+     * RegolaStressIdrico) arricchiscono il messaggio con un indicatore
+     * complementare tracciato separatamente in StatoRischio.
+     */
+    protected abstract String messaggio(MisurazioneMessage misurazione, StatoRischio stato, String livello);
 
     protected SogliaConIsteresi soglie() {
         return soglie;

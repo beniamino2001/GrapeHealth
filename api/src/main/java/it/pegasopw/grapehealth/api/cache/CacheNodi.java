@@ -17,6 +17,11 @@ import java.util.concurrent.ConcurrentHashMap;
 // A differenza della versione in persistence (che risolve solo codice->id per scrivere
 // una FK), qui serve anche l'entita' completa in lettura, piu' l'indice inverso
 // parcella->nodi per il filtro di /api/misurazioni.
+
+// Tabella di riferimento fissa per l'intera sessione simulata: caricata una sola volta
+// all'avvio invece di essere interrogata a ogni richiesta. ConcurrentHashMap invece di
+// HashMap perche' le mappe sono lette concorrentemente da piu' richieste HTTP mentre vengono
+// popolate in carica(); nessuna scrittura avviene dopo l'avvio.
 @Component
 public class CacheNodi {
 
@@ -25,6 +30,7 @@ public class CacheNodi {
     private final NodoSensoreRepository nodoSensoreRepository;
     private final Map<Long, NodoSensoreEntity> nodoPerId = new ConcurrentHashMap<>();
     private final Map<Long, List<Long>> nodoIdsPerParcellaId = new ConcurrentHashMap<>();
+    private final Map<String, Long> idPerCodice = new ConcurrentHashMap<>();
 
     public CacheNodi(NodoSensoreRepository nodoSensoreRepository) {
         this.nodoSensoreRepository = nodoSensoreRepository;
@@ -35,6 +41,7 @@ public class CacheNodi {
         for (NodoSensoreEntity nodo : nodoSensoreRepository.findAll()) {
             nodoPerId.put(nodo.getId(), nodo);
             nodoIdsPerParcellaId.computeIfAbsent(nodo.getParcellaId(), k -> new ArrayList<>()).add(nodo.getId());
+            idPerCodice.put(nodo.getCodice(), nodo.getId());
         }
         log.info("Cache nodi caricata: {} nodi noti", nodoPerId.size());
     }
@@ -45,5 +52,14 @@ public class CacheNodi {
 
     public List<Long> nodoIdsPerParcella(Long parcellaId) {
         return nodoIdsPerParcellaId.getOrDefault(parcellaId, List.of());
+    }
+
+    public java.util.Collection<NodoSensoreEntity> tutti() {
+        return nodoPerId.values();
+    }
+
+    public NodoSensoreEntity trovaPerCodice(String codice) {
+        Long id = idPerCodice.get(codice);
+        return id != null ? nodoPerId.get(id) : null;
     }
 }

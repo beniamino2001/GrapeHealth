@@ -25,8 +25,14 @@ class SimulatoreAttuazioneTest {
     }
 
     @Test
-    void ondataDiCaloreAttivaNebulizzazioneAntiCalore() {
+    void ondataDiCaloreModeratoAttivaNebulizzazioneSemplice() {
         assertEquals("nebulizzazione anti-calore", simulatore.determinaAzione(evento("ondata_di_calore")));
+    }
+
+    @Test
+    void ondataDiCaloreSeveroAttivaNebulizzazioneDEmergenza() {
+        assertEquals("nebulizzazione anti-calore d'emergenza",
+                simulatore.determinaAzione(eventoConLivello("ondata_di_calore", "severo")));
     }
 
     @Test
@@ -43,6 +49,24 @@ class SimulatoreAttuazioneTest {
     void treDieciSeveroAttivaTrattamentoFitosanitarioUrgente() {
         assertEquals("trattamento fitosanitario urgente",
                 simulatore.determinaAzione(eventoConLivello("tre_dieci", "severo")));
+    }
+
+    @Test
+    void svernamentoOosporeNonHaAzioneCatalogata() {
+        assertEquals("nessuna azione di mitigazione catalogata (monitoraggio)",
+                simulatore.determinaAzione(evento("svernamento_oospore")));
+    }
+
+    @Test
+    void infezioneSecondariaNonHaAzioneCatalogata() {
+        assertEquals("nessuna azione di mitigazione catalogata (monitoraggio)",
+                simulatore.determinaAzione(evento("infezione_secondaria")));
+    }
+
+    @Test
+    void dannoRadicaleNonHaAzioneCatalogata() {
+        assertEquals("nessuna azione di mitigazione catalogata (monitoraggio)",
+                simulatore.determinaAzione(eventoConLivello("danno_radicale", "severo")));
     }
 
     @Test
@@ -72,11 +96,5 @@ class SimulatoreAttuazioneTest {
     void sunburnSeveroAttivaNebulizzazioneDEmergenza() {
         assertEquals("nebulizzazione anti-scottatura d'emergenza",
                 simulatore.determinaAzione(eventoConLivello("sunburn", "severo")));
-    }
-
-    @Test
-    void ondataDiCaloreIgnoraIlLivelloPerchéSempreModerato() {
-        assertEquals("nebulizzazione anti-calore",
-                simulatore.determinaAzione(eventoConLivello("ondata_di_calore", "moderato")));
     }
 }

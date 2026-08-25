@@ -46,7 +46,8 @@ class AllertaPersistenceListenerTest {
         listener.onAllerta(evento);
 
         List<AllertaEntity> allerte = allertaRepository.findAll().stream()
-                .filter(a -> "messaggio di test integrazione".equals(a.getDescrizione()))
+                .filter(a -> "messaggio di test integrazione".equals(a.getDescrizione())
+                        && "stress_idrico".equals(a.getTipo()))
                 .toList();
         assertEquals(1, allerte.size(), "doveva essere stata scritta esattamente un'allerta di test");
 
@@ -69,6 +70,30 @@ class AllertaPersistenceListenerTest {
         assertEquals("irrigazione_soccorso", trattamentoSalvato.getTipoAzione());
         assertTrue(trattamentoSalvato.getNote().contains("stress_idrico"));
         assertTrue(trattamentoSalvato.getNote().contains("severo"));
+    }
+
+    @Test
+    @Transactional
+    void allertaSenzaAzioneCatalogataVienePersistitaSenzaTrattamento() {
+        AllertaEvent evento = evento("infezione_secondaria", "moderato");
+
+        listener.onAllerta(evento);
+
+        List<AllertaEntity> allerte = allertaRepository.findAll().stream()
+                .filter(a -> "messaggio di test integrazione".equals(a.getDescrizione())
+                        && "infezione_secondaria".equals(a.getTipo()))
+                .toList();
+        assertEquals(1, allerte.size(), "l'allerta va comunque persistita anche senza un'azione catalogata");
+
+        AllertaEntity allertaSalvata = allerte.get(0);
+        assertEquals("attiva", allertaSalvata.getStato());
+        assertNotNull(allertaSalvata.getRisoluzionePianificataIl(),
+                "va comunque pianificata per la risoluzione, pur senza un trattamento collegato");
+
+        List<TrattamentoEntity> trattamenti = trattamentoRepository.findAll().stream()
+                .filter(t -> allertaSalvata.getId().equals(t.getAllertaId()))
+                .toList();
+        assertEquals(0, trattamenti.size(), "nessun trattamento catalogato per infezione_secondaria");
     }
 
     @Test

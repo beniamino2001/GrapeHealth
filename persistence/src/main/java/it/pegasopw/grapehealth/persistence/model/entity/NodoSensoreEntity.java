@@ -5,6 +5,10 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
+// Sola lettura per questo modulo: la tabella e' popolata dal seed di
+// 01_schema.sql e da sensors-simulator/scripts/init_nodi_db.py, non scritta
+// da nessun listener qui. I setter esistono solo per costruire fixture nei
+// test senza bisogno di un contesto di persistenza completo.
 @Entity
 @Table(name = "nodo_sensore")
 public class NodoSensoreEntity {

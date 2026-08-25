@@ -31,15 +31,19 @@ public class MisurazionePersistenceListener implements MessageListener {
     private final List<MisurazioneEntity> buffer = new ArrayList<>(DIMENSIONE_BATCH);
 
     public MisurazionePersistenceListener(JsonMapper jsonMapper,
-                                          MisurazioneRepository misurazioneRepository,
-                                          CacheNodi cacheNodi,
-                                          StimaScalaSimulazione stimaScalaSimulazione) {
+            MisurazioneRepository misurazioneRepository,
+            CacheNodi cacheNodi,
+            StimaScalaSimulazione stimaScalaSimulazione) {
         this.jsonMapper = jsonMapper;
         this.misurazioneRepository = misurazioneRepository;
         this.cacheNodi = cacheNodi;
         this.stimaScalaSimulazione = stimaScalaSimulazione;
     }
 
+    // Questa coda riceve anche i messaggi di stato online/offline dei nodi
+    // (Last Will and Testament del broker MQTT, inoltrati sull'exchange
+    // condivisa con le misurazioni): vanno solo loggati, non trattati come
+    // una misurazione da parsare e salvare.
     @Override
     public void onMessage(Message rawMessage) {
         String routingKey = rawMessage.getMessageProperties().getReceivedRoutingKey();
@@ -108,6 +112,7 @@ public class MisurazionePersistenceListener implements MessageListener {
     private void handleStatoNodo(Message rawMessage, String routingKey) {
         String statoNodo = new String(rawMessage.getBody(), StandardCharsets.UTF_8);
         String nodo = routingKey.substring(STATUS_ROUTING_PREFIX.length());
-        log.info("Stato nodo aggiornato (non persistito, nessuna tabella dedicata): nodo={}, stato={}", nodo, statoNodo);
+        log.info("Stato nodo aggiornato (non persistito, nessuna tabella dedicata): nodo={}, stato={}", nodo,
+                statoNodo);
     }
 }

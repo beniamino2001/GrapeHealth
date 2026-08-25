@@ -1,5 +1,6 @@
 package it.pegasopw.grapehealth.decisionengine.listener;
 
+import it.pegasopw.grapehealth.decisionengine.cache.CacheNodiAttivi;
 import it.pegasopw.grapehealth.decisionengine.model.dto.MisurazioneMessage;
 import it.pegasopw.grapehealth.decisionengine.publisher.AllertaPublisher;
 import it.pegasopw.grapehealth.decisionengine.regole.RegolaRischio;
@@ -14,6 +15,29 @@ import tools.jackson.databind.json.JsonMapper;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 
+/**
+ * Punto di ingresso del decision engine: riceve ogni messaggio pubblicato sul
+ * binding "grapehealth.#" (misurazioni dei sensori e messaggi di stato dei
+ * nodi) e li smista in base al prefisso della routing key.
+ *
+ * Implementa MessageListener a basso livello invece di usare l'annotazione
+ * @RabbitListener: quest'ultima invoca comunque il MessageConverter
+ * configurato prima ancora di consegnare il messaggio al metodo annotato,
+ * indipendentemente dal tipo del parametro dichiarato — tentando quindi di
+ * deserializzare come JSON anche i messaggi di stato dei nodi, che sono testo
+ * semplice ("online"/"offline"), e fallendo. Implementando l'interfaccia
+ * direttamente, la conversione JSON avviene solo esplicitamente in
+ * handleMisurazione, mai su handleStatoNodo.
+ *
+ * Le misurazioni da un nodo esplicitamente disattivato in anagrafica
+ * (CacheNodiAttivi) vengono scartate prima di raggiungere qualunque regola:
+ * un nodo rimosso dalla topologia non deve continuare a generare allerte
+ * come se fosse ancora valido. Un nodo sconosciuto (mai sincronizzato in
+ * anagrafica) viene invece elaborato normalmente, con solo un avviso nei
+ * log — scartarlo per assenza di dati sarebbe più rischioso che tenerlo,
+ * dato che un'anagrafica non ancora sincronizzata è indistinguibile da un
+ * nodo davvero rimosso senza questa distinzione esplicita.
+ */
 @Component
 public class MisurazioneListener implements MessageListener {
 
@@ -24,13 +48,16 @@ public class MisurazioneListener implements MessageListener {
     private final List<RegolaRischio> regole;
     private final AllertaPublisher allertaPublisher;
     private final StatoRischio stato;
+    private final CacheNodiAttivi cacheNodiAttivi;
 
     public MisurazioneListener(JsonMapper jsonMapper, List<RegolaRischio> regole,
-                               AllertaPublisher allertaPublisher, StatoRischio stato) {
+                               AllertaPublisher allertaPublisher, StatoRischio stato,
+                               CacheNodiAttivi cacheNodiAttivi) {
         this.jsonMapper = jsonMapper;
         this.regole = regole;
         this.allertaPublisher = allertaPublisher;
         this.stato = stato;
+        this.cacheNodiAttivi = cacheNodiAttivi;
     }
 
     @Override
@@ -49,6 +76,18 @@ public class MisurazioneListener implements MessageListener {
         log.info("Ricevuta misurazione: nodo={}, parcella={}, parametro={}, valore={}",
                 misurazione.nodo(), misurazione.parcella(), misurazione.parametro(), misurazione.valore());
 
+        Boolean attivo = cacheNodiAttivi.attivo(misurazione.nodo());
+        if (Boolean.FALSE.equals(attivo)) {
+            log.warn("Misurazione ignorata da nodo disattivato in anagrafica: nodo={}", misurazione.nodo());
+            return;
+        }
+        if (attivo == null) {
+            log.warn("Misurazione da nodo non presente in anagrafica: nodo={} (init_nodi_db.py eseguito?)",
+                    misurazione.nodo());
+        }
+
+        // Ogni regola decide da sé, tramite isApplicabile(), se questa
+        // misurazione la riguarda: qui vengono valutate tutte indistintamente.
         regole.forEach(regola -> regola.valuta(misurazione, stato)
                 .ifPresent(allertaPublisher::pubblica));
     }

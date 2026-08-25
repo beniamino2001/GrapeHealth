@@ -1,16 +1,17 @@
 package it.pegasopw.grapehealth.decisionengine.regole;
 
 import it.pegasopw.grapehealth.decisionengine.cache.CacheGermogli;
+import it.pegasopw.grapehealth.decisionengine.cache.CacheSoglieRegole;
 import it.pegasopw.grapehealth.decisionengine.cache.CacheTabellaGoidanich;
 import it.pegasopw.grapehealth.decisionengine.model.dto.MisurazioneMessage;
 import it.pegasopw.grapehealth.decisionengine.model.entity.ParcellaEntity;
+import it.pegasopw.grapehealth.decisionengine.model.entity.RegolaSogliaEntity;
 import it.pegasopw.grapehealth.decisionengine.model.entity.SogliaIncubazioneGoidanichEntity;
 import it.pegasopw.grapehealth.decisionengine.model.entity.SogliaIncubazioneGoidanichId;
 import it.pegasopw.grapehealth.decisionengine.model.evento.AllertaEvent;
 import it.pegasopw.grapehealth.decisionengine.repository.ParcellaRepository;
 import it.pegasopw.grapehealth.decisionengine.repository.SogliaIncubazioneGoidanichRepository;
 import it.pegasopw.grapehealth.decisionengine.stato.StatoRischio;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
@@ -25,9 +26,31 @@ import static org.mockito.Mockito.when;
 
 class RegolaTreDieciTest {
 
-    private RegolaTreDieci regola;
+    private final CacheGermogli cacheGermogli = cacheGermogli();
+    private final CacheTabellaGoidanich cacheTabellaGoidanich = cacheTabellaGoidanich();
+    private final RegolaTreDieci regola = new RegolaTreDieci(cacheGermogli, cacheTabellaGoidanich, cacheSoglieRegole());
     private final StatoRischio stato = new StatoRischio();
     private final Instant ora = Instant.parse("2026-04-15T10:00:00Z");
+
+    private RegolaSogliaEntity soglia(double valore) {
+        RegolaSogliaEntity s = new RegolaSogliaEntity();
+        s.setValoreSoglia(valore);
+        return s;
+    }
+
+    private RegolaSogliaEntity soglia(double valore, int durataMinuti) {
+        RegolaSogliaEntity s = soglia(valore);
+        s.setDurataMinimaMinuti(durataMinuti);
+        return s;
+    }
+
+    private CacheSoglieRegole cacheSoglieRegole() {
+        CacheSoglieRegole cache = mock(CacheSoglieRegole.class);
+        when(cache.sogliaUnica("tre_dieci", "temperatura_aria", "moderato")).thenReturn(soglia(10.0));
+        when(cache.sogliaUnica("tre_dieci", "pioggia", "moderato")).thenReturn(soglia(10.0, 2880));
+        when(cache.sogliaUnica("tre_dieci", "germogli", "moderato")).thenReturn(soglia(10.0));
+        return cache;
+    }
 
     private ParcellaEntity parcella(String nome, double lunghezzaCm) {
         ParcellaEntity entity = new ParcellaEntity();
@@ -36,24 +59,15 @@ class RegolaTreDieciTest {
         return entity;
     }
 
-    @BeforeEach
-    void creaRegolaConCacheDiTest() {
+    private CacheGermogli cacheGermogli() {
         ParcellaRepository parcellaRepository = mock(ParcellaRepository.class);
         when(parcellaRepository.findAll()).thenReturn(List.of(
                 parcella("parcellaA", 12.0),
                 parcella("parcellaB", 14.0),
                 parcella("parcellaC", 10.0)));
-        CacheGermogli cacheGermogli = new CacheGermogli(parcellaRepository);
-        cacheGermogli.carica();
-
-        SogliaIncubazioneGoidanichRepository goidanichRepository = mock(SogliaIncubazioneGoidanichRepository.class);
-        when(goidanichRepository.findAll()).thenReturn(List.of(
-                rigaGoidanich(14, false, 6.6), rigaGoidanich(14, true, 9.0),
-                rigaGoidanich(20, false, 14.2), rigaGoidanich(20, true, 20.0)));
-        CacheTabellaGoidanich cacheTabellaGoidanich = new CacheTabellaGoidanich(goidanichRepository);
-        cacheTabellaGoidanich.carica();
-
-        regola = new RegolaTreDieci(cacheGermogli, cacheTabellaGoidanich);
+        CacheGermogli cache = new CacheGermogli(parcellaRepository);
+        cache.carica();
+        return cache;
     }
 
     private SogliaIncubazioneGoidanichEntity rigaGoidanich(int temperatura, boolean umiditaAlta, double percentuale) {
@@ -61,6 +75,16 @@ class RegolaTreDieciTest {
         entity.setId(new SogliaIncubazioneGoidanichId(temperatura, umiditaAlta));
         entity.setPercentualeIncrementoGiornaliero(percentuale);
         return entity;
+    }
+
+    private CacheTabellaGoidanich cacheTabellaGoidanich() {
+        SogliaIncubazioneGoidanichRepository goidanichRepository = mock(SogliaIncubazioneGoidanichRepository.class);
+        when(goidanichRepository.findAll()).thenReturn(List.of(
+                rigaGoidanich(14, false, 6.6), rigaGoidanich(14, true, 9.0),
+                rigaGoidanich(20, false, 14.2), rigaGoidanich(20, true, 20.0)));
+        CacheTabellaGoidanich cache = new CacheTabellaGoidanich(goidanichRepository);
+        cache.carica();
+        return cache;
     }
 
     private MisurazioneMessage temperatura(String parcella, double valore, Instant t) {
@@ -99,9 +123,6 @@ class RegolaTreDieciTest {
 
     @Test
     void sommaCorrettamentePioggeSuGiorniDiversiNellaFinestra() {
-        // Due giorni diversi, ciascuno sotto soglia singolarmente (4mm, 7mm), che
-        // insieme superano i 10mm richiesti dalla ricerca di Baldacci: è questo 
-        // il caso che la finestra di 48h è pensata per catturare.
         regola.valuta(temperatura("parcellaA", 14.0, ora), stato);
         regola.valuta(pioggia("parcellaA", 4.0, ora), stato);
 
@@ -114,17 +135,14 @@ class RegolaTreDieciTest {
 
     @Test
     void nonGonfiaLaPioggiaSuLetturePeripeteNelloStessoGiornoSimulato() {
-        // Riproduce il comportamento reale del simulatore (generator.py): "pioggia" è
-        // un totale di giornata ripubblicato invariato a ogni ciclo (~2880 volte/giorno
-        // simulato), non una lettura incrementale indipendente.
         Instant t = ora;
         for (int i = 0; i < 5; i++) {
             regola.valuta(pioggia("parcellaA", 4.0, t), stato);
-            t = t.plus(30, ChronoUnit.SECONDS); // stesso intervallo di pubblicazione del simulatore
+            t = t.plus(30, ChronoUnit.SECONDS);
         }
 
         double cumulato = stato.sommaFinestra("tre_dieci:parcellaA:pioggia", t, Duration.ofHours(48));
-        assertEquals(4.0, cumulato, 0.001); // non 20.0 (4.0 × 5 letture duplicate)
+        assertEquals(4.0, cumulato, 0.001);
     }
 
     @Test
@@ -166,8 +184,6 @@ class RegolaTreDieciTest {
         regola.valuta(pioggia("parcellaA", 11.0, ora), stato);
         regola.valuta(umidita("parcellaA", 95.0, ora), stato);
 
-        // A 20°C con umidità alta, la ricerca di Goidanich indica il 20% di sviluppo al
-        // giorno: servono 4 giorni per superare la soglia del 70%.
         Optional<AllertaEvent> risultato = Optional.empty();
         for (int giorno = 1; giorno <= 4 && risultato.isEmpty(); giorno++) {
             Instant t = ora.plus(giorno, ChronoUnit.DAYS);
@@ -203,9 +219,6 @@ class RegolaTreDieciTest {
         regola.valuta(pioggia("parcellaA", 11.0, ora), stato);
         regola.valuta(umidita("parcellaA", 95.0, ora), stato);
 
-        // Dopo 3 giorni la pioggia iniziale è ormai fuori dalla finestra
-        // delle 48h (condizioneVerificata tornerebbe falsa), ma l'incubazione
-        // già avviata deve proseguire lo stesso.
         Instant treGiorniDopo = ora.plus(3, ChronoUnit.DAYS);
         regola.valuta(temperatura("parcellaA", 20.0, treGiorniDopo), stato);
         regola.valuta(umidita("parcellaA", 95.0, treGiorniDopo), stato);

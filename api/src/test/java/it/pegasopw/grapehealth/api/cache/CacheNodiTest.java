@@ -59,4 +59,27 @@ class CacheNodiTest {
         assertEquals(List.of(7L), cache.nodoIdsPerParcella(2L));
         assertTrue(cache.nodoIdsPerParcella(999L).isEmpty());
     }
+
+    @Test
+    void tuttiRestituisceOgniNodoCaricato() {
+        NodoSensoreRepository repository = mock(NodoSensoreRepository.class);
+        when(repository.findAll()).thenReturn(List.of(nodo(5L, "meteo-A1", 1L)));
+
+        CacheNodi cache = new CacheNodi(repository);
+        cache.carica();
+
+        assertEquals(1, cache.tutti().size());
+    }
+
+    @Test
+    void trovaPerCodiceRestituisceLEntitaCompleta() {
+        NodoSensoreRepository repository = mock(NodoSensoreRepository.class);
+        when(repository.findAll()).thenReturn(List.of(nodo(5L, "meteo-A1", 1L)));
+
+        CacheNodi cache = new CacheNodi(repository);
+        cache.carica();
+
+        assertEquals("meteo-A1", cache.trovaPerCodice("meteo-A1").getCodice());
+        assertNull(cache.trovaPerCodice("sconosciuto"));
+    }
 }

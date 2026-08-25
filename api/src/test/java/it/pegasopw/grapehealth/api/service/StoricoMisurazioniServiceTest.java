@@ -10,6 +10,9 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
+import it.pegasopw.grapehealth.api.model.dto.MisurazioneDTO;
+import it.pegasopw.grapehealth.api.model.entity.MisurazioneEntity;
+import org.springframework.data.domain.Sort;
 
 import java.time.Instant;
 import java.util.List;
@@ -59,5 +62,21 @@ class StoricoMisurazioniServiceTest {
         service.cerca(null, "temperatura_aria", null, null, pageable);
 
         verify(misurazioneRepository).findAll(any(Specification.class), eq(pageable));
+    }
+
+    @Test
+    void finestraDalAlNonPassaDaPageableERestituisceOgniRigaCandidata() {
+        Instant dal = Instant.parse("2026-08-01T00:00:00Z");
+        Instant al = Instant.parse("2026-08-03T00:00:00Z");
+        List<MisurazioneEntity> candidati = List.of(
+                mock(MisurazioneEntity.class), mock(MisurazioneEntity.class), mock(MisurazioneEntity.class));
+        when(nodoResolver.nodoIdsPerParcella(null)).thenReturn(null);
+        when(misurazioneRepository.findAll(any(Specification.class), any(Sort.class))).thenReturn(candidati);
+
+        Page<MisurazioneDTO> risultato = service.cerca(null, null, dal, al, pageable);
+
+        assertEquals(3, risultato.getTotalElements());
+        assertEquals(3, risultato.getContent().size());
+        verify(misurazioneRepository, never()).findAll(any(Specification.class), any(Pageable.class));
     }
 }

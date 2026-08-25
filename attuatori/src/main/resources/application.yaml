@@ -19,7 +19,7 @@ spring:
 
 logging:
   file:
-    name: ${user.home}/Downloads/grapehealth-attuatori.log
+    name: ${SPRING_BOOT_LOGS_DIR:${user.home}/Downloads}/grapehealth-attuatori.log
   structured:
     format:
       file: ecs

@@ -1,6 +1,25 @@
+// Bootstrap della dashboard: popolamento dei filtri dal catalogo parcelle e
+// dall'elenco parametri, caricamento iniziale e aggiornamento periodico del
+// grafico delle misurazioni, con la guardia anti-race-condition su richieste
+// concorrenti (v. commento su generazioneGraficoMisurazioni sotto). Una sola
+// funzione pura in questo file, formattaData (v. main.test.js): il resto resta
+// intrecciato con il DOM e/o con una chiamata fetch.
 let PARCELLE_INFO = {}; // nome -> ParcellaDTO, popolato al bootstrap da /api/parcelle
-const PARAMETRI = ['temperatura_aria', 'umidita_aria', 'pioggia', 'bagnatura_fogliare', 'psi_stem', 'temperatura_bacca'];
 
+// I nove valori devono coincidere con il vincolo CHECK su misurazione.parametro
+// (schema del database) e con i parametri realmente pubblicati dai nodi del
+// simulatore: un valore qui che non esiste nei dati non produce errori, solo
+// un'opzione nel filtro che non restituira' mai nulla; un parametro pubblicato
+// ma assente da questo elenco resta invece irraggiungibile dal grafico.
+// velocita_vento, temperatura_suolo e umidita_suolo sono qui per lo stesso
+// motivo di pioggia a suo tempo: dati gia' pubblicati e gia' a database, privi
+// altrimenti di qualunque punto di consultazione su questa dashboard.
+const PARAMETRI = ['temperatura_aria', 'umidita_aria', 'pioggia', 'bagnatura_fogliare', 'psi_stem', 'temperatura_bacca', 'velocita_vento', 'temperatura_suolo', 'umidita_suolo'];
+
+// Le chiavi devono coincidere esattamente con i value delle <option> di
+// #filtroFinestra in index.html: e' quel valore, letto dal <select>, a
+// indicizzare questo oggetto in caricaGraficoMisurazioni(). `ms: null` per
+// "breve" segnala l'assenza di finestra (modalita' "ultime letture").
 const FINESTRE_TEMPORALI = {
   breve: { ms: null },
   giorno: { ms: 24 * 60 * 60 * 1000 },
@@ -73,7 +92,7 @@ async function caricaGraficoMisurazioni() {
       if (ultimeMisurazioni.length === 0) {
         erroreEl.textContent = 'Nessuna misurazione disponibile per i filtri selezionati.';
         renderTrendChart('chartMisurazioni', [], parametro, parcella, undefined, finestraAttiva);
-        aggiornaKpiMisurazioni(0, 0, null);
+        aggiornaKpiMisurazioni(null);
         return;
       }
       al = new Date(ultimeMisurazioni[0].rilevatoIl);
@@ -97,14 +116,13 @@ async function caricaGraficoMisurazioni() {
     }
 
     const unitaMisura = misurazioni[0]?.unitaMisura;
-    const nodiDistinti = new Set(misurazioni.map(m => m.nodoCodice)).size;
     const ultimaRicevutaIl = misurazioni.reduce((max, m) => {
       const t = new Date(m.ricevutoIl).getTime();
       return t > max ? t : max;
     }, 0);
 
     renderTrendChart('chartMisurazioni', misurazioni, parametro, parcella, unitaMisura, finestraAttiva);
-    aggiornaKpiMisurazioni(misurazioni.length, nodiDistinti, ultimaRicevutaIl || null);
+    aggiornaKpiMisurazioni(ultimaRicevutaIl || null);
   } catch (err) {
     if (generazioneCorrente !== generazioneGraficoMisurazioni) return; // superata da una richiesta piu' recente
     console.error('Errore nel recupero delle misurazioni', err);
@@ -112,11 +130,71 @@ async function caricaGraficoMisurazioni() {
   }
 }
 
+// Anagrafica dei nodi sensore (/api/nodi, nuovo endpoint): un nodo rimosso
+// dalla configurazione viene marcato attivo=false invece di essere cancellato,
+// per non perdere la storia delle misurazioni gia' raccolte - un conteggio
+// "operativi su totali" segnala quindi se l'intera rete sensori e' schierata
+// o se qualche nodo e' stato messo fuori servizio, un'informazione di stato
+// dell'infrastruttura distinta da qualunque cosa riguardi le allerte. Recuperata
+// una sola volta al bootstrap, non ripetuta a ogni ciclo: a differenza delle
+// allerte, lo stato di un nodo non cambia entro la durata di una sessione.
+// Lo stesso array popola anche il dettaglio a scomparsa sotto il KPI, con
+// tutti i campi che /api/nodi restituisce: nessuna seconda chiamata fetch.
+async function aggiornaKpiNodiOperativi() {
+  const kpiNodi = document.getElementById('kpiNodiOperativi');
+  const corpoTabella = document.getElementById('corpoTabellaNodi');
+  try {
+    const nodi = await GrapeHealthAPI.getNodi();
+    const operativi = nodi.filter(n => n.attivo).length;
+    kpiNodi.textContent = nodi.length > 0 ? `${operativi}/${nodi.length}` : '—';
+    renderTabellaNodi(corpoTabella, nodi);
+  } catch (err) {
+    console.error('Impossibile caricare l\'anagrafica nodi da /api/nodi', err);
+    kpiNodi.textContent = '—';
+    corpoTabella.innerHTML = '<tr><td colspan="5">Impossibile caricare l\'elenco dei nodi.</td></tr>';
+  }
+}
+
+// Ordinata per parcella e poi per codice, cosi' che i nodi della stessa parcella
+// compaiano vicini - piu' utile a un operatore che scorre la tabella per zona
+// che l'ordine grezzo restituito dall'API.
+function renderTabellaNodi(corpoTabella, nodi) {
+  if (nodi.length === 0) {
+    corpoTabella.innerHTML = '<tr><td colspan="5">Nessun nodo censito.</td></tr>';
+    return;
+  }
+  const righe = [...nodi]
+    .sort((a, b) => a.parcella.localeCompare(b.parcella) || a.codice.localeCompare(b.codice))
+    .map(n => `
+      <tr>
+        <td>${n.codice}</td>
+        <td>${n.tipoNodo}</td>
+        <td>${n.parcella}</td>
+        <td><span class="badge ${n.attivo ? 'badge-attivo' : 'badge-inattivo'}">${n.attivo ? 'attivo' : 'inattivo'}</span></td>
+        <td>${formattaData(n.dataInstallazione)}</td>
+      </tr>
+    `)
+    .join('');
+  corpoTabella.innerHTML = righe;
+}
+
+// LocalDate lato Java (es. "2025-03-12") non porta con se' alcun fuso orario:
+// passarla a `new Date(...)` per poi formattarla localmente introdurrebbe un
+// fuso che il dato non ha, con il rischio concreto di mostrare il giorno
+// sbagliato in un fuso indietro rispetto a UTC (mezzanotte UTC diventa il
+// giorno prima). Riformattata direttamente sulla stringa, senza passare da
+// un oggetto Date.
+function formattaData(iso) {
+  if (!iso) return '—';
+  const [anno, mese, giorno] = iso.split('-');
+  return `${giorno}/${mese}/${anno}`;
+}
+
 // A differenza del pannello Allerte, il grafico delle misurazioni veniva caricato solo all'avvio o al click su
-// "Aggiorna grafico": i KPI derivati (misurazioni caricate, nodi attivi,
-// ultima ricevuta) restavano quindi fermi allo snapshot iniziale anche con
-// dati nuovi in arrivo. Per risolvere ho introdotto un setInterval che richiama la funzione gia'
-// esistente, rispettando i filtri correnti selezionati dall'utente.
+// "Aggiorna grafico": il KPI derivato ("Ultima misurazione ricevuta") restava
+// quindi fermo allo snapshot iniziale anche con dati nuovi in arrivo. Risolto
+// con un setInterval che richiama la funzione gia' esistente, rispettando i
+// filtri correnti selezionati dall'utente.
 const INTERVALLO_AGGIORNAMENTO_GRAFICO_MS = 30000;
 let timerGraficoMisurazioni = null;
 
@@ -126,6 +204,7 @@ function avviaAggiornamentoGraficoMisurazioni() {
 
 document.addEventListener('DOMContentLoaded', async () => {
   await popolaFiltri();
+  aggiornaKpiNodiOperativi();
   inizializzaTabAllerte();
 
   document.getElementById('filtroForm').addEventListener('submit', e => {
@@ -138,3 +217,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   startPolling();
   avviaAggiornamentoTempoRisposta();
 });
+
+// V. il commento equivalente in api.js per il perche' di questo blocco: nel browser e' un
+// no-op (nessun `module`), in Node espone a main.test.js la sola funzione di questo file
+// che non tocca il DOM o una fetch.
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { formattaData };
+}

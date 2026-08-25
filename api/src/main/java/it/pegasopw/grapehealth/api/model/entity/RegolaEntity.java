@@ -12,9 +12,6 @@ public class RegolaEntity {
     @Id
     private String codice;
 
-    @Column(name = "tipo_allerta", nullable = false)
-    private String tipoAllerta;
-
     @Column(nullable = false)
     private String descrizione;
 
@@ -22,7 +19,6 @@ public class RegolaEntity {
     private String fonteBibliografica;
 
     public String getCodice() { return codice; }
-    public String getTipoAllerta() { return tipoAllerta; }
     public String getDescrizione() { return descrizione; }
     public String getFonteBibliografica() { return fonteBibliografica; }
 }

@@ -10,6 +10,10 @@ import org.springframework.stereotype.Component;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+// I nodi sensore sono fissi per l'intera sessione simulata, quindi la mappa
+// codice->id viene caricata una sola volta all'avvio invece di interrogare
+// il DB per ogni misurazione/allerta in arrivo. Usata per risolvere
+// evento.nodo() (codice testuale, es. "idrico-A1") in nodo_id.
 @Component
 public class CacheNodi {
 

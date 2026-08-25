@@ -38,7 +38,7 @@ spring:
 
 logging:
   file:
-    name: ${user.home}/Downloads/grapehealth-persistence.log
+    name: ${SPRING_BOOT_LOGS_DIR:${user.home}/Downloads}/grapehealth-persistence.log
   structured:
     format:
       file: ecs

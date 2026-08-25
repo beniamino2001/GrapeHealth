@@ -12,6 +12,17 @@ la tabella `parcella` non ha una colonna `attivo` nello schema attuale,
 coerentemente con l'assunzione che una parcella (a differenza di un singolo nodo) 
 non venga mai rimossa senza un intervento diretto sullo schema.
 
+Due contesti di esecuzione, non uno:
+- da host, manuale: `cd sensors-simulator && python scripts/init_nodi_db.py`,
+  con un .env locale letto da load_dotenv();
+- dentro il container Tomcat, automatico: start-instances.sh lo invoca a ogni
+  avvio del container, prima delle cinque istanze Tomcat. Lì .env non esiste
+  come file (mai copiato nell'immagine, v. infra/tomcat/Dockerfile), ma le
+  stesse variabili arrivano già nell'ambiente del processo via docker-compose
+  (env_file più gli override PG_HOST/RABBITMQ_HOST/MQTT_HOST specifici della
+  rete Docker): load_dotenv() non trova nulla lì e non fa danno, os.environ
+  ha comunque i valori giusti in entrambi i contesti.
+
 Uso:
     cd sensors-simulator
     source .venv/bin/activate (se non è stato già configurato il venv, "python3 -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt")
@@ -52,13 +63,11 @@ UPSERT_PARCELLA_QUERY = """
 """
 
 UPSERT_NODO_QUERY = """
-    INSERT INTO nodo_sensore (codice, parcella_id, tipo_nodo, latitudine, longitudine, attivo, data_installazione)
-    VALUES (%s, %s, %s, %s, %s, TRUE, CURRENT_DATE)
+    INSERT INTO nodo_sensore (codice, parcella_id, tipo_nodo, attivo, data_installazione)
+    VALUES (%s, %s, %s, TRUE, CURRENT_DATE)
     ON CONFLICT (codice) DO UPDATE SET
         parcella_id = EXCLUDED.parcella_id,
         tipo_nodo = EXCLUDED.tipo_nodo,
-        latitudine = EXCLUDED.latitudine,
-        longitudine = EXCLUDED.longitudine,
         attivo = TRUE;
 """
 
@@ -87,8 +96,10 @@ def main():
         pg_password = os.environ["POSTGRES_PASSWORD"]
     except KeyError as exc:
         print(
-            f"Variabile d'ambiente {exc} mancante: esegui ./scripts/setup-credentials.sh "
-            "dalla root del repository e ricarica l'ambiente (.env) prima di rilanciare questo script.",
+            f"Variabile d'ambiente {exc} mancante: rigenera le credenziali con "
+            "./scripts/setup-credentials.sh dalla root del repository, poi rilancia "
+            "questo script da host oppure ricrea il container ('docker compose up -d "
+            "--build') se stai leggendo questo messaggio nei suoi log.",
             file=sys.stderr,
         )
         sys.exit(1)
@@ -122,13 +133,7 @@ def main():
             totale_parcelle += 1
 
             for nodo in parcella["nodi"]:
-                cur.execute(UPSERT_NODO_QUERY, (
-                    nodo["codice"],
-                    parcella_id,
-                    nodo["tipo"],
-                    parcella["latitudine"],
-                    parcella["longitudine"],
-                ))
+                cur.execute(UPSERT_NODO_QUERY, (nodo["codice"], parcella_id, nodo["tipo"]))
                 totale_nodi += 1
                 codici_correnti.append(nodo["codice"])
 
