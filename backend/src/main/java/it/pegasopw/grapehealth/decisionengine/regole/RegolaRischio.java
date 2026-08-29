@@ -7,8 +7,9 @@ import it.pegasopw.grapehealth.decisionengine.stato.StatoRischio;
 import java.util.Optional;
 
 /**
- * Contratto comune alle quattro regole di rischio del decision engine
- * (stress idrico, ondata di calore, tre dieci, sunburn). Ogni implementazione
+ * Contratto comune alle sette regole di rischio del decision engine (stress
+ * idrico, ondata di calore, tre dieci, sunburn, svernamento delle oospore,
+ * infezione secondaria, danno radicale). Ogni implementazione
  * osserva un parametro specifico (psi_stem, temperatura_aria, ecc.) e decide
  * se una misurazione in arrivo comporta un'allerta, tenendo conto dello stato
  * accumulato nel tempo (isteresi, finestre mobili, episodi) tramite

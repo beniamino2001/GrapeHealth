@@ -25,6 +25,8 @@ import argparse
 import json
 import logging
 import os
+import random
+import signal
 import time
 from datetime import datetime
 from pathlib import Path
@@ -187,6 +189,42 @@ def valida_config(config: dict, scenario_effettivo: str, time_scale_effettivo: f
                 )
 
 
+def gestisci_sigterm(signum, frame):
+    """Converte SIGTERM in KeyboardInterrupt: SIGINT (Ctrl+C, `kill -INT`) è
+    già gestito correttamente nel blocco try/except di main(), ma un
+    `docker stop`, un `systemctl stop` o un semplice `kill <pid>` senza
+    `-INT` inviano SIGTERM per default. Senza questo handler, SIGTERM
+    termina il processo immediatamente saltando il blocco finally che
+    salva lo stato di sessione e pubblica lo stato "offline" via MQTT.
+    Sollevare qui la stessa eccezione già gestita più sotto riusa il
+    percorso di arresto pulito esistente invece di duplicarlo."""
+    raise KeyboardInterrupt()
+
+
+def valida_tasso_errori(tasso: float) -> None:
+    """Verifica che --tasso-errori sia una probabilità valida (0.0-1.0):
+    un valore fuori range produrrebbe un comportamento silenziosamente
+    sbagliato in random.random() < tasso più sotto — per esempio un tasso
+    di 50 corromperebbe ogni singola lettura senza alcun errore visibile,
+    invece di essere rifiutato subito come un valore mal digitato."""
+    if not 0.0 <= tasso <= 1.0:
+        raise ValueError(
+            f"--tasso-errori deve essere compreso fra 0.0 e 1.0, ricevuto {tasso}."
+        )
+
+
+def corrompi_payload(payload: dict) -> str:
+    """Restituisce una stringa deliberatamente non-JSON al posto della
+    serializzazione corretta di payload, conservando il nodo di origine
+    nel testo per restare identificabile in una coda di dead-letter.
+    Fallisce già alla conversione del messaggio lato Java, prima ancora
+    della deserializzazione nel record applicativo — lo stesso scenario
+    che finora andava riprodotto pubblicando a mano un messaggio non-JSON,
+    qui automatizzato con traffico reale di questa fase. Usata solo
+    quando --tasso-errori (v. parse_args()) è maggiore di zero."""
+    return f'{{"nodo": "{payload["nodo"]}", "guasto_simulato": true,'
+
+
 def parse_args():
     parser = argparse.ArgumentParser(description="Simulatore nodi IoT GrapeHealth")
     parser.add_argument("--scenario", choices=list(SCENARI_VALIDI),
@@ -197,11 +235,17 @@ def parse_args():
                          help="Ignora lo stato di sessione salvato da un'esecuzione precedente "
                               "(linea temporale simulata e condizioni delle parcelle) e riparte "
                               "da 'adesso' con condizioni di default.")
+    parser.add_argument("--tasso-errori", type=float, default=0.0,
+                         help="Probabilità (0.0-1.0) che ciascuna lettura pubblicata sia "
+                              "deliberatamente corrotta (JSON non valido), per esercitare le "
+                              "code di dead-letter dei moduli a valle con traffico reale invece "
+                              "che con messaggi costruiti a mano. Default 0.0 (nessuna corruzione).")
     return parser.parse_args()
 
 
 def main():
-    load_dotenv()
+    signal.signal(signal.SIGTERM, gestisci_sigterm)
+    load_dotenv(override=True)  # override=True per permettere a docker-compose di sovrascrivere .env locale
     args = parse_args()
     config = carica_config()
 
@@ -214,9 +258,17 @@ def main():
     # di lasciare che un typo (o uno zero) produca dati silenziosamente
     # sbagliati, o un crash oscuro più avanti, per l'intera durata della run.
     valida_config(config, scenario, time_scale)
+    valida_tasso_errori(args.tasso_errori)
 
     logger.info("Scenario attivo: %s | time_scale: %s | intervallo pubblicazione: %ss simulati",
                 scenario, time_scale, intervallo_sim)
+    if args.tasso_errori > 0:
+        logger.warning(
+            "--tasso-errori=%.3f attivo: circa una lettura su %d sarà pubblicata "
+            "deliberatamente corrotta, per verificare la gestione degli errori a valle. "
+            "Non usare questa opzione per una run che deve alimentare dati puliti.",
+            args.tasso_errori, round(1 / args.tasso_errori),
+        )
 
     messaggio_time_scale = avviso_time_scale(time_scale)
     if messaggio_time_scale:
@@ -251,21 +303,33 @@ def main():
 
     clock = SimulatedClock(time_scale=time_scale, start=punto_di_partenza)
     client = GrapeHealthMqttClient(client_id="sensori-simulati")
-    client.connect()
-
-    # una StatoParcella per parcella: mantiene la memoria di psi_stem/pioggia,
-    # ripristinata dalla sessione precedente quando disponibile
-    stati = {}
-    stati_salvati = (stato_precedente or {}).get("parcelle", {})
-    for p in config["parcelle"]:
-        sp = StatoParcella(scenario)
-        if p["nome"] in stati_salvati:
-            sp.ripristina_stato(stati_salvati[p["nome"]])
-        stati[p["nome"]] = sp
-
     sleep_reale = max(PAVIMENTO_SLEEP_REALE_SECONDI, intervallo_sim / time_scale)
 
+    # Dichiarato vuoto qui, fuori dal try: così il finally può sempre
+    # accedervi anche se un'interruzione arriva durante client.connect(),
+    # prima ancora che stati venga popolato più sotto — in quel caso non
+    # esiste ancora alcuno stato fisico reale da preservare, un dizionario
+    # vuoto passato a salva_stato_sessione() è innocuo (v. test_state.py).
+    stati = {}
+
     try:
+        # Dentro il blocco protetto, non prima: con il backoff di connect()
+        # (fino a MAX_TENTATIVI_CONNESSIONE_INIZIALE tentativi, anche minuti
+        # se il broker tarda ad avviarsi) una SIGINT/SIGTERM che arrivasse
+        # durante l'attesa, se connect() restasse fuori da questo blocco,
+        # salterebbe comunque il salvataggio dello stato e la disconnessione
+        # pulita più sotto.
+        client.connect()
+
+        # una StatoParcella per parcella: mantiene la memoria di psi_stem/pioggia,
+        # ripristinata dalla sessione precedente quando disponibile
+        stati_salvati = (stato_precedente or {}).get("parcelle", {})
+        for p in config["parcelle"]:
+            sp = StatoParcella(scenario)
+            if p["nome"] in stati_salvati:
+                sp.ripristina_stato(stati_salvati[p["nome"]])
+            stati[p["nome"]] = sp
+
         while True:
             now = clock.now()
 
@@ -298,7 +362,17 @@ def main():
                             "timestamp_rilevazione": now.isoformat() + "Z",
                         }
                         topic = f"{prefix}/{parcella['nome']}/{nodo['codice']}/{parametro}"
-                        client.publish(topic, json.dumps(payload), qos=1)
+                        if args.tasso_errori > 0 and random.random() < args.tasso_errori:
+                            corpo = corrompi_payload(payload)
+                            logger.warning(
+                                "Pubblicazione deliberatamente corrotta su %s "
+                                "(--tasso-errori attivo): verifica della gestione degli "
+                                "errori a valle, non un malfunzionamento.",
+                                topic,
+                            )
+                        else:
+                            corpo = json.dumps(payload)
+                        client.publish(topic, corpo, qos=1)
 
             salva_stato_sessione(now, {nome: s.esporta_stato() for nome, s in stati.items()})
             time.sleep(sleep_reale)

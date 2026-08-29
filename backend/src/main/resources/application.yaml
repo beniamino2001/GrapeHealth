@@ -8,7 +8,7 @@ spring:
     password: ${RABBITMQ_PASS}
     virtual-host: /
   datasource:
-    url: jdbc:postgresql://${PG_HOST:localhost}:${PG_PORT:5432}/${POSTGRES_DB}
+    url: jdbc:postgresql://${PG_HOST:localhost}:${PG_PORT:5432}/${POSTGRES_DB}?sslmode=${POSTGRES_SSL_MODE:verify-full}&sslrootcert=${PG_SSL_ROOT_CERT}
     username: ${POSTGRES_USER}
     password: ${POSTGRES_PASSWORD}
   jpa:

@@ -16,8 +16,12 @@ import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Optional;
+
 @Component
 public class AllertaPersistenceListener {
+
+    private static final String STATO_ATTIVA = "attiva";
 
     private static final Logger log = LoggerFactory.getLogger(AllertaPersistenceListener.class);
 
@@ -51,6 +55,45 @@ public class AllertaPersistenceListener {
             return;
         }
 
+        // A time-scale molto alte lo stesso nodo può ripubblicare la stessa
+        // condizione di rischio a pochi secondi reali di distanza - a volte
+        // allo stesso livello (il margine di isteresi del decision engine
+        // non sempre basta a filtrare il sottocampionamento del segnale
+        // simulato), a volte con un cambio di livello quasi immediato
+        // (es. moderato seguito da severo entro pochi secondi, prima ancora
+        // che il primo si sia risolto). In entrambi i casi un nodo ha un
+        // solo livello di rischio corrente per un dato tipo, non due
+        // contemporaneamente: si cerca quindi l'eventuale allerta già attiva
+        // per lo stesso nodo/tipo, a prescindere dal suo livello.
+        Optional<AllertaEntity> allertaAttivaEsistente = allertaRepository
+                .findByNodoIdAndTipoAndStato(nodoId, evento.tipo(), STATO_ATTIVA);
+
+        if (allertaAttivaEsistente.isPresent()) {
+            AllertaEntity esistente = allertaAttivaEsistente.get();
+
+            if (esistente.getLivelloRischio().equals(evento.livelloRischio())) {
+                // Stesso livello: è la stessa condizione ancora in corso, non
+                // una nuova allerta. Invece di aprire una riga duplicata (e un
+                // secondo trattamento), si estende la pianificazione di
+                // risoluzione di quella già attiva.
+                schedulerRisoluzioneAllerte.pianifica(esistente);
+                log.info("Allerta già attiva per tipo={}, livello={}, nodoId={}: pianificazione di risoluzione estesa (id={})",
+                        evento.tipo(), evento.livelloRischio(), nodoId, esistente.getId());
+                return;
+            }
+
+            // Livello diverso: il rischio per questo nodo è cambiato. Si
+            // chiude subito quella al livello precedente invece di lasciarla
+            // scadere per conto suo - altrimenti resterebbero visibili come
+            // "attive" in contemporanea due allerte a livelli diversi per lo
+            // stesso nodo/tipo, che è esattamente il sintomo osservato sulla
+            // dashboard. Si prosegue poi sotto per aprire la nuova allerta al
+            // nuovo livello, con il proprio trattamento se previsto.
+            schedulerRisoluzioneAllerte.risolviOra(esistente);
+            log.info("Livello di rischio cambiato da {} a {} per tipo={}, nodoId={}: allerta precedente chiusa (id={})",
+                    esistente.getLivelloRischio(), evento.livelloRischio(), evento.tipo(), nodoId, esistente.getId());
+        }
+
         // A differenza del nodo, una parcella non risolvibile non blocca la
         // scrittura: allerta.parcella_id è nullable e questo campo è un
         // arricchimento (traccia diretta per regole a livello di parcella),
@@ -74,10 +117,10 @@ public class AllertaPersistenceListener {
         log.info("Allerta persistita: id={}, tipo={}, livello={}, nodoId={}, parcellaId={}",
                 allertaId, evento.tipo(), evento.livelloRischio(), nodoId, parcellaId);
 
-        // svernamento_oospore e infezione_secondaria non hanno un'azione
-        // catalogata (v. MappatoreAzione): per queste due l'allerta viene
-        // comunque persistita e pianificata per la risoluzione come tutte le
-        // altre, ma senza un trattamento collegato.
+        // svernamento_oospore, infezione_secondaria e danno_radicale non hanno
+        // un'azione catalogata (v. MappatoreAzione): per questi l'allerta
+        // viene comunque persistita e pianificata per la risoluzione come
+        // tutte le altre, ma senza un trattamento collegato.
         mappatoreAzione.tipoAzione(evento).ifPresentOrElse(
                 tipoAzione -> {
                     TrattamentoEntity trattamento = new TrattamentoEntity(

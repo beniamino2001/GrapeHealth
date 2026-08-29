@@ -292,21 +292,10 @@
         {
           "listen": "test",
           "script": {
-            "exec": [
-              "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
-              "pm.test(\"Solo allerte attive di default\", () => {",
-              "    const body = pm.response.json();",
-              "    body.content.forEach(a => pm.expect(a.stato).to.eql(\"attiva\"));",
-              "});",
-              "",
-              "const body = pm.response.json();",
-              "if (body.content.length > 0) {",
-              "    pm.environment.set(\"allertaIdConTrattamento\", body.content[0].id);",
-              "}"
-            ],
             "type": "text/javascript",
-            "packages": {},
-            "requests": {}
+            "exec": [
+              "pm.test(\"Status 200\", () => pm.response.to.have.status(200));\npm.test(\"Solo allerte attive di default\", () => {\n    const body = pm.response.json();\n    body.content.forEach(a => pm.expect(a.stato).to.eql(\"attiva\"));\n});\npm.test(\"Nessuna coppia nodo/tipo duplicata tra le allerte attive\", () => {\n    const body = pm.response.json();\n    const coppie = body.content.map(a => `${a.nodoCodice}|${a.tipo}`);\n    const uniche = new Set(coppie);\n    pm.expect(uniche.size).to.eql(coppie.length);\n});\n\nconst body = pm.response.json();\nif (body.content.length > 0) {\n    pm.environment.set(\"allertaIdConTrattamento\", body.content[0].id);\n}"
+            ]
           }
         }
       ],
@@ -683,7 +672,7 @@
           "script": {
             "type": "text/javascript",
             "exec": [
-              "pm.test(\"Ogni raccomandazione ha l'arricchimento bibliografico\", () => {\n    const body = pm.response.json();\n    if (body.length > 0) {\n        const r = body[0];\n        pm.expect(r.descrizioneRegola).to.not.be.null;\n        pm.expect(r.fonteBibliograficaRegola).to.not.be.null;\n        pm.expect(r.azioniAlternative).to.be.an(\"array\");\n        // svernamento_oospore e infezione_secondaria non hanno azioni catalogate in\n        // regola_azione (nessuna fonte bibliografica ne documenta una): un array vuoto\n        // e' il risultato corretto per queste due regole, non un'assenza di dati.\n        if (![\"svernamento_oospore\", \"infezione_secondaria\"].includes(r.tipoAllerta)) {\n            pm.expect(r.azioniAlternative.length).to.be.greaterThan(0);\n        }\n    }\n});"
+              "pm.test(\"Ogni raccomandazione ha l'arricchimento bibliografico\", () => {\n    const body = pm.response.json();\n    if (body.length > 0) {\n        const r = body[0];\n        pm.expect(r.descrizioneRegola).to.not.be.null;\n        pm.expect(r.fonteBibliograficaRegola).to.not.be.null;\n        pm.expect(r.azioniAlternative).to.be.an(\"array\");\n        // svernamento_oospore, infezione_secondaria e danno_radicale non hanno azioni\n        // catalogate in regola_azione (nessuna fonte bibliografica ne documenta una): un\n        // array vuoto e' il risultato corretto per queste tre regole, non un'assenza di dati.\n        if (![\"svernamento_oospore\", \"infezione_secondaria\", \"danno_radicale\"].includes(r.tipoAllerta)) {\n            pm.expect(r.azioniAlternative.length).to.be.greaterThan(0);\n        }\n    }\n});"
             ]
           }
         }

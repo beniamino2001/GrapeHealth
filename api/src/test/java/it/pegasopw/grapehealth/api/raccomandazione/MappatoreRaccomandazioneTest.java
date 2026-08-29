@@ -77,4 +77,34 @@ class MappatoreRaccomandazioneTest {
         assertTrue(testo.contains("monitoraggio"));
         assertFalse(testo.contains("si raccomanda"));
     }
+
+    @Test
+    void ondataDiCaloreInterpolaIlLivelloNelTesto() {
+        String testo = mappatore.testoRaccomandazione(allerta("ondata_di_calore", "severo"));
+        assertTrue(testo.contains("severo"));
+    }
+
+    @Test
+    void sunburnInterpolaIlLivelloNelTesto() {
+        String testo = mappatore.testoRaccomandazione(allerta("sunburn", "moderato"));
+        assertTrue(testo.contains("moderato"));
+    }
+
+    @Test
+    void infezioneSecondariaETestoInformativoSenzaRaccomandazioneDiAzione() {
+        String testo = mappatore.testoRaccomandazione(allerta("infezione_secondaria", "moderato"));
+        assertTrue(testo.contains("monitoraggio"));
+        assertFalse(testo.contains("si raccomanda"));
+    }
+
+    @Test
+    void stressIdricoHaAzioneCatalogata() {
+        assertEquals("irrigazione_soccorso", mappatore.azioneConsigliata(allerta("stress_idrico", "moderato")).get());
+    }
+
+    @Test
+    void ondataDiCaloreESunburnCondividonoLaStessaAzioneCatalogata() {
+        assertEquals("nebulizzazione", mappatore.azioneConsigliata(allerta("ondata_di_calore", "moderato")).get());
+        assertEquals("nebulizzazione", mappatore.azioneConsigliata(allerta("sunburn", "severo")).get());
+    }
 }

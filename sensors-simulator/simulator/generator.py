@@ -100,13 +100,20 @@ def genera_umidita_aria(temp_aria: float, scenario: str) -> float:
 
 
 def genera_bagnatura_fogliare(dt: datetime, pioggia_oggi_mm: float, umidita_aria: float) -> float:
+    """Il ramo diurno riusa lo stesso livello del ramo notturno (40 + (umidita_aria-60)*0,5),
+    modulato da un coseno rialzato che vale 1 esattamente alle 8 e alle 21 — qualunque sia
+    umidita_aria — e 0 nel punto centrale (14:30): garantisce che il valore non faccia mai
+    un salto ai due confini fra i due rami, invece di ripartire da una soglia fissa (20)
+    scollegata dal livello notturno realmente raggiunto in quel momento."""
     ora = dt.hour + dt.minute / 60
+    livello_notturno = 40 + (umidita_aria - 60) * 0.5  # rugiada notturna favorita da UR alta
     if pioggia_oggi_mm > 0:
         base = 90.0
     elif ora <= 8 or ora >= 21:
-        base = 40 + (umidita_aria - 60) * 0.5  # rugiada notturna favorita da UR alta
+        base = livello_notturno
     else:
-        base = max(0.0, 20 - (ora - 8) * 3)  # si asciuga durante le ore centrali
+        fattore_diurno = (1 + math.cos(2 * math.pi * (ora - 8) / 13)) / 2  # 1 alle 8/21, 0 alle 14:30
+        base = max(0.0, livello_notturno * fattore_diurno)  # si asciuga durante le ore centrali
     valore = max(0.0, min(100.0, base + random.uniform(-5, 5)))
     return round(valore, 1)
 

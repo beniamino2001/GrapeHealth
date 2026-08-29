@@ -12,7 +12,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-// Stesso pattern di CacheNodi in persistence: i 9 nodi sono fissi per l'intera sessione
+// Stesso pattern di CacheNodi in persistence: i dodici nodi sono fissi per l'intera sessione
 // simulata, caricati una sola volta all'avvio invece che con una query per richiesta.
 // A differenza della versione in persistence (che risolve solo codice->id per scrivere
 // una FK), qui serve anche l'entita' completa in lettura, piu' l'indice inverso

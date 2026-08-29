@@ -167,7 +167,7 @@ class TestTettoTeoricoOndataDiCalore:
 
 class TestTettoTeoricoSunburn:
     """RegolaSunburn: soglia moderato 45°C + 4 soglie letali dipendenti dalla
-    durata (Schmidt et al. 2023). Verificato separatamente per colore bacca."""
+    durata (Müller et al. 2023). Verificato separatamente per colore bacca."""
 
     def test_moderato_non_raggiungibile_fuori_ondata_di_calore(self, monkeypatch):
         for scenario in ("normale", "stress_idrico"):
@@ -280,10 +280,10 @@ class TestRaffreddamentoDaVento:
 
 
 class TestCorrelazioneVentoTempBacca:
-    """Lo stesso principio già verificato per temperatura_aria/temperatura_bacca
-    (§10.5): il raffreddamento da vento in temperatura_bacca deve riflettere
-    lo stesso vento pubblicato dal nodo meteo nello stesso tick, non un
-    secondo campione indipendente."""
+    """Lo stesso principio già verificato per temperatura_aria/temperatura_bacca:
+    il raffreddamento da vento in temperatura_bacca deve riflettere lo stesso
+    vento pubblicato dal nodo meteo nello stesso tick, non un secondo
+    campione indipendente."""
 
     def test_stesso_vento_riferimento_produce_lo_stesso_raffreddamento(self, monkeypatch):
         dt = datetime(2026, 7, 1, 15, 0)
@@ -328,6 +328,42 @@ class TestTettoTeoricoUmiditaGoidanich:
             f"raggiunge il 90%: comportamento fisicamente incoerente con "
             f"uno scenario di calore secco."
         )
+
+class TestGeneraUmiditaAria:
+    """genera_umidita_aria(): finora esercitata solo indirettamente tramite
+    il tetto teorico della soglia di Goidanich (sopra) — nessun test
+    verificava le sue proprietà di base indipendentemente da quella soglia."""
+
+    def test_range_valido(self, monkeypatch):
+        monkeypatch.setattr(random, "uniform", lambda a, b: 0.0)
+        for scenario in SCENARI:
+            for temp_aria in (-5.0, 0.0, 18.0, 30.0, 45.0, 60.0):
+                valore = genera_umidita_aria(temp_aria, scenario)
+                assert 20.0 <= valore <= 95.0
+
+    def test_diminuisce_con_temperatura_piu_alta(self, monkeypatch):
+        monkeypatch.setattr(random, "uniform", lambda a, b: 0.0)
+        bassa = genera_umidita_aria(15.0, "normale")
+        alta = genera_umidita_aria(35.0, "normale")
+        assert alta < bassa, "Un'aria più calda dovrebbe essere meno umida, a parità di scenario."
+
+    def test_ridotta_in_ondata_di_calore_a_parita_di_temperatura(self, monkeypatch):
+        """Le ondate di calore sono tipicamente più secche: a parità di
+        temperatura dell'aria, l'umidità attesa deve essere più bassa."""
+        monkeypatch.setattr(random, "uniform", lambda a, b: 0.0)
+        normale = genera_umidita_aria(25.0, "normale")
+        ondata = genera_umidita_aria(25.0, "ondata_di_calore")
+        assert ondata == pytest.approx(normale - 10.0, abs=0.1)
+
+    def test_non_supera_mai_il_tetto_del_95_percento(self, monkeypatch):
+        monkeypatch.setattr(random, "uniform", lambda a, b: 3.0)  # estremo massimo del rumore
+        valore = genera_umidita_aria(-10.0, "normale")  # formula pura ben oltre 95
+        assert valore == pytest.approx(95.0)
+
+    def test_non_scende_mai_sotto_il_pavimento_del_20_percento(self, monkeypatch):
+        monkeypatch.setattr(random, "uniform", lambda a, b: -3.0)  # estremo minimo del rumore
+        valore = genera_umidita_aria(70.0, "ondata_di_calore")  # formula pura ben sotto 20
+        assert valore == pytest.approx(20.0)
 
 
 class TestPsiStemRangeRaggiungibile:
@@ -661,14 +697,41 @@ class TestBagnatoraFogliareRangeValido:
 
     def test_ore_centrali_senza_pioggia_si_asciuga_col_passare_delle_ore(self, monkeypatch):
         """Verifica il valore atteso del ramo diurno (decrescente dalle 8 in
-        poi), non solo il range."""
+        poi, minimo alle 14:30), non solo il range."""
         monkeypatch.setattr(random, "uniform", lambda a, b: 0.0)
         valore_alle_9 = genera_bagnatura_fogliare(datetime(2026, 7, 1, 9, 0), 0.0, 50.0)
         valore_alle_15 = genera_bagnatura_fogliare(datetime(2026, 7, 1, 15, 0), 0.0, 50.0)
-        # base(9) = 20-(9-8)*3 = 17; base(15) = max(0, 20-(15-8)*3) = max(0,-1) = 0
-        assert valore_alle_9 == pytest.approx(17.0, abs=0.1)
-        assert valore_alle_15 == pytest.approx(0.0, abs=0.1)
+        # livello_notturno = 40+(50-60)*0.5 = 35; fattore_diurno(9) ≈ 0,943 -> ≈33,0;
+        # fattore_diurno(15) ≈ 0,0145 -> ≈0,51 (quasi asciutto, non più esattamente zero
+        # come con la vecchia soglia fissa: il minimo della curva cade alle 14:30, non alle 15).
+        assert valore_alle_9 == pytest.approx(33.0, abs=0.1)
+        assert valore_alle_15 == pytest.approx(0.5, abs=0.1)
         assert valore_alle_15 < valore_alle_9, "La bagnatura fogliare dovrebbe diminuire avvicinandosi a metà giornata."
+
+    def test_continuita_ai_confini_veri_fra_ramo_notturno_e_diurno(self, monkeypatch):
+        """Copre esattamente il salto che test_transizione_continua_entro_l_ora
+        NON copre: quello fra le 7:59 e le 8:01, e fra le 20:59 e le 21:01 — i
+        due istanti in cui il codice passa effettivamente dal ramo notturno
+        (ora<=8 o ora>=21) al ramo diurno, non un salto interno allo stesso
+        ramo come 8:59/9:00. Con la vecchia soglia fissa (20) il salto era di
+        ~15-25 punti alle 8 e fino a ~45 punti alle 21, a seconda
+        dell'umidità; qui deve restare entro il rumore di lettura (±5)."""
+        monkeypatch.setattr(random, "uniform", lambda a, b: 0.0)
+        for umidita in (40.0, 50.0, 70.0, 90.0):
+            v_7_59 = genera_bagnatura_fogliare(datetime(2026, 7, 1, 7, 59), 0.0, umidita)
+            v_8_00 = genera_bagnatura_fogliare(datetime(2026, 7, 1, 8, 0), 0.0, umidita)
+            v_8_01 = genera_bagnatura_fogliare(datetime(2026, 7, 1, 8, 1), 0.0, umidita)
+            v_20_59 = genera_bagnatura_fogliare(datetime(2026, 7, 1, 20, 59), 0.0, umidita)
+            v_21_00 = genera_bagnatura_fogliare(datetime(2026, 7, 1, 21, 0), 0.0, umidita)
+            v_21_01 = genera_bagnatura_fogliare(datetime(2026, 7, 1, 21, 1), 0.0, umidita)
+            assert v_7_59 == pytest.approx(v_8_01, abs=1.0), (
+                f"Salto al confine delle 8 con umidita_aria={umidita}: {v_7_59} -> {v_8_01}"
+            )
+            assert v_8_00 == pytest.approx(v_8_01, abs=1.0)
+            assert v_20_59 == pytest.approx(v_21_01, abs=1.0), (
+                f"Salto al confine delle 21 con umidita_aria={umidita}: {v_20_59} -> {v_21_01}"
+            )
+            assert v_21_00 == pytest.approx(v_21_01, abs=1.0)
 
     def test_transizione_continua_entro_l_ora_non_a_scalini(self, monkeypatch):
         """Un processo fisico continuo (l'asciugatura della foglia) non deve

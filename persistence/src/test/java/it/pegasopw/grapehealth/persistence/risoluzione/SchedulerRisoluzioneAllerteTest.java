@@ -97,4 +97,37 @@ class SchedulerRisoluzioneAllerteTest {
         assertEquals("risolta", aggiornata.getStato(),
                 "la pianificazione doveva essere ricostruita dal DB e poi risolta dallo sweep");
     }
+
+    @Test
+    @Transactional
+    void risolviOraRisolveSubitoSenzaAttendereLaScadenzaPianificata() {
+        AllertaEntity allerta = nuovaAllertaDiTest("allerta di test risoluzione immediata");
+        scheduler.pianificaAllaScadenza(allerta, Instant.now().plusSeconds(600));
+
+        scheduler.risolviOra(allerta);
+
+        AllertaEntity aggiornata = allertaRepository.findById(allerta.getId()).orElseThrow();
+        assertEquals("risolta", aggiornata.getStato());
+        assertNotNull(aggiornata.getRisoltaIl());
+    }
+
+    @Test
+    @Transactional
+    void risolviOraRimuoveLaScadenzaPendenteEvitandoUnaSecondaRisoluzioneDalloSweep() {
+        AllertaEntity allerta = nuovaAllertaDiTest("allerta di test doppia risoluzione");
+        scheduler.pianificaAllaScadenza(allerta, Instant.now().plusSeconds(600));
+
+        scheduler.risolviOra(allerta);
+        Instant risoltaIlDopoRisolviOra = allertaRepository.findById(allerta.getId()).orElseThrow().getRisoltaIl();
+
+        // Anche se la scadenza pianificata (in memoria) fosse rimasta,
+        // un successivo sweep non deve sovrascrivere risolta_il: qui si
+        // verifica che risolviScadute() non trovi più nulla da fare per
+        // questa allerta, perché risolviOra() ha già ripulito la mappa.
+        scheduler.risolviScadute();
+
+        AllertaEntity finale = allertaRepository.findById(allerta.getId()).orElseThrow();
+        assertEquals(risoltaIlDopoRisolviOra, finale.getRisoltaIl(),
+                "risolta_il non deve cambiare a un successivo sweep dopo una risoluzione immediata");
+    }
 }

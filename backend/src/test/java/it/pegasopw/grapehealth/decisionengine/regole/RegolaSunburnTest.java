@@ -58,7 +58,7 @@ class RegolaSunburnTest {
 
     @Test
     void restaModeratoSeTemperaturaAltaMaDurataInsufficientePerLaSuaSogliaLT50() {
-        // 47.82°C richiede 60 minuti continuativi per diventare severo, secondo la ricerca di Schmidt nel 2023
+        // 47.82°C richiede 60 minuti continuativi per diventare severo, secondo la ricerca di Müller nel 2023
         regola.valuta(temperaturaBacca(47.82, ora), stato); // apre l'episodio
         var dopo30Min = regola.valuta(temperaturaBacca(47.82, ora.plus(30, ChronoUnit.MINUTES)), stato);
         assertTrue(dopo30Min.isEmpty()); // stesso livello "moderato", nessuna ripubblicazione
@@ -84,7 +84,7 @@ class RegolaSunburnTest {
 
     @Test
     void nonScattaSeveroSeLaTemperaturaNonRaggiungeAlcunaSogliaLetale() {
-        // 46°C non è mai una soglia di Schmidt, indipendentemente dalla durata
+        // 46°C non è mai una soglia di Müller, indipendentemente dalla durata
         regola.valuta(temperaturaBacca(46.0, ora), stato);
         var dopo2Ore = regola.valuta(temperaturaBacca(46.0, ora.plus(120, ChronoUnit.MINUTES)), stato);
         assertTrue(dopo2Ore.isEmpty()); // resta "moderato", nessuna nuova pubblicazione

@@ -162,7 +162,6 @@ function renderAlertList(allerte, filtroTipoAttivo = null) {
       ${risolta && a.risoltaIl ? `
         <div class="alert-risolta-info">
           Risolta il ${new Date(a.risoltaIl).toLocaleString('it-IT')}
-          · dopo ${formattaDurata(new Date(a.risoltaIl) - new Date(a.generataIl))}
         </div>
       ` : ''}
       ${!risolta && a.risoluzionePianificataIl ? `

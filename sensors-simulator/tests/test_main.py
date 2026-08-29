@@ -9,6 +9,8 @@ test_config_validation.py.
 Eseguire con: pytest -v (dalla cartella sensors-simulator/)
 """
 
+import json
+import signal
 import sys
 
 import pytest
@@ -18,7 +20,10 @@ from simulator.main import (
     avviso_intervallo_sovrascritto,
     avviso_time_scale,
     carica_config,
+    corrompi_payload,
+    gestisci_sigterm,
     parse_args,
+    valida_tasso_errori,
     valore_effettivo,
 )
 
@@ -33,6 +38,17 @@ class TestCaricaConfig:
         assert len(config["parcelle"]) == 3
 
 
+class TestGestisceSigterm:
+    """gestisci_sigterm() è la funzione pura registrata come handler di
+    SIGTERM in main() (non testato qui, v. docstring del modulo): estratta
+    apposta per essere verificabile senza inviare un segnale POSIX reale,
+    sullo stesso principio già applicato a avviso_time_scale()."""
+
+    def test_solleva_keyboard_interrupt(self):
+        with pytest.raises(KeyboardInterrupt):
+            gestisci_sigterm(signal.SIGTERM, None)
+
+
 class TestParseArgs:
     def _con_argv(self, monkeypatch, *argomenti):
         monkeypatch.setattr(sys, "argv", ["main.py", *argomenti])
@@ -45,6 +61,7 @@ class TestParseArgs:
         assert args.scenario is None
         assert args.time_scale is None
         assert args.reset_sessione is False
+        assert args.tasso_errori == 0.0
 
     def test_scenario_valido_viene_accettato(self, monkeypatch):
         self._con_argv(monkeypatch, "--scenario", "ondata_di_calore")
@@ -88,6 +105,52 @@ class TestParseArgs:
             self._con_argv(monkeypatch, "--scenario", scenario)
             args = parse_args()
             assert args.scenario == scenario
+
+    def test_tasso_errori_viene_convertito_a_float(self, monkeypatch):
+        self._con_argv(monkeypatch, "--tasso-errori", "0.05")
+
+        args = parse_args()
+
+        assert args.tasso_errori == 0.05
+        assert isinstance(args.tasso_errori, float)
+
+
+class TestValidaTassoErrori:
+    """Stessa disciplina di valida_config(): fallire subito e rumorosamente
+    su un valore fuori dominio, non lasciare che random.random() < tasso
+    si comporti in modo silenziosamente sbagliato con un valore assurdo."""
+
+    @pytest.mark.parametrize("tasso_valido", [0.0, 0.5, 1.0])
+    def test_valore_nel_range_passa(self, tasso_valido):
+        valida_tasso_errori(tasso_valido)  # non deve sollevare nulla
+
+    @pytest.mark.parametrize("tasso_non_valido", [-0.1, 1.1, -5, 50])
+    def test_valore_fuori_range_solleva_errore(self, tasso_non_valido):
+        with pytest.raises(ValueError, match="tasso-errori"):
+            valida_tasso_errori(tasso_non_valido)
+
+
+class TestCorrompiPayload:
+    """corrompi_payload(): usata solo quando --tasso-errori è maggiore di
+    zero, per esercitare le code di dead-letter dei moduli a valle con
+    traffico reale invece che con messaggi costruiti a mano."""
+
+    def _payload(self, nodo="meteo-A1"):
+        return {
+            "nodo": nodo, "parcella": "parcellaA", "parametro": "temperatura_aria",
+            "valore": 28.5, "unita_misura": "C", "timestamp_rilevazione": "2026-07-01T12:00:00Z",
+        }
+
+    def test_produce_una_stringa_non_json_valida(self):
+        corrotto = corrompi_payload(self._payload())
+
+        with pytest.raises(json.JSONDecodeError):
+            json.loads(corrotto)
+
+    def test_conserva_il_nodo_di_origine_per_restare_identificabile_in_dead_letter(self):
+        corrotto = corrompi_payload(self._payload(nodo="bacca-C1"))
+
+        assert "bacca-C1" in corrotto
 
 
 class TestAvvisoTimeScale:

@@ -15,7 +15,7 @@ from unittest.mock import MagicMock
 import pytest
 
 import simulator.mqtt_client as mqtt_client_module
-from simulator.mqtt_client import GrapeHealthMqttClient
+from simulator.mqtt_client import CA_CERT_PATH, GrapeHealthMqttClient, MAX_TENTATIVI_PUBLISH
 
 
 class RisultatoPublishFinto:
@@ -71,6 +71,14 @@ class TestCostruzione:
         assert kwargs.get("payload") == "offline"
         assert kwargs.get("retain") is True
 
+    def test_tls_abilitato_con_la_ca_locale(self, client_paho_finto):
+        """Il listener MQTT in chiaro di RabbitMQ è disattivato (mqtt.listeners.tcp
+        = none): senza tls_set(), connect() fallirebbe sempre, non solo in modo
+        insicuro — verificare la sua presenza non è opzionale quanto le altre."""
+        GrapeHealthMqttClient(client_id="sensori-simulati")
+
+        client_paho_finto.tls_set.assert_called_once_with(ca_certs=str(CA_CERT_PATH))
+
 
 class TestConnect:
     def test_connect_pubblica_online_dopo_la_connessione(self, client_paho_finto, monkeypatch):
@@ -85,33 +93,141 @@ class TestConnect:
         topic_atteso = "grapehealth/status/sensori-simulati"
         client_paho_finto.publish.assert_any_call(topic_atteso, "online", qos=1, retain=True)
 
+    def test_porta_di_default_e_8883_non_1883(self, client_paho_finto, monkeypatch):
+        """Il listener MQTT in chiaro (1883) di RabbitMQ è disattivato: la
+        porta di default deve essere quella TLS (8883), non quella storica."""
+        monkeypatch.delenv("MQTT_PORT", raising=False)
+        client = GrapeHealthMqttClient(client_id="sensori-simulati")
+
+        client.connect()
+
+        args, _ = client_paho_finto.connect.call_args
+        assert args[1] == 8883
+
+
+class TestConnectConRetry:
+    """Il primo handshake TCP+MQTT, a differenza delle disconnessioni
+    successive (già gestite indefinitamente da reconnect_delay_set()), ha
+    un numero finito di tentativi con backoff esponenziale."""
+
+    def test_nessun_ritardo_se_il_primo_tentativo_riesce(self, client_paho_finto, monkeypatch):
+        ritardi = []
+        monkeypatch.setattr(mqtt_client_module.time, "sleep", lambda s: ritardi.append(s))
+        client = GrapeHealthMqttClient(client_id="sensori-simulati")
+
+        client.connect()
+
+        assert client_paho_finto.connect.call_count == 1
+        assert ritardi == []
+
+    def test_riprova_e_riesce_dopo_fallimenti_transitori(self, client_paho_finto, monkeypatch):
+        ritardi = []
+        monkeypatch.setattr(mqtt_client_module.time, "sleep", lambda s: ritardi.append(s))
+        client_paho_finto.connect.side_effect = [
+            OSError("connessione rifiutata"), OSError("connessione rifiutata"), None,
+        ]
+        client = GrapeHealthMqttClient(client_id="sensori-simulati")
+
+        client.connect()
+
+        assert client_paho_finto.connect.call_count == 3
+        assert ritardi == [1, 2], "Il ritardo deve raddoppiare a ogni tentativo fallito: 1s, poi 2s."
+        client_paho_finto.loop_start.assert_called_once()
+
+    def test_propaga_l_errore_dopo_il_numero_massimo_di_tentativi(self, client_paho_finto, monkeypatch):
+        monkeypatch.setattr(mqtt_client_module.time, "sleep", lambda s: None)
+        client_paho_finto.connect.side_effect = OSError("broker mai raggiungibile")
+        client = GrapeHealthMqttClient(client_id="sensori-simulati")
+
+        with pytest.raises(OSError, match="broker mai raggiungibile"):
+            client.connect(max_tentativi=3)
+
+        assert client_paho_finto.connect.call_count == 3, (
+            "Deve fermarsi esattamente al numero di tentativi richiesto, non continuare all'infinito."
+        )
+        client_paho_finto.loop_start.assert_not_called()
+
+    def test_backoff_non_supera_il_tetto_massimo(self, client_paho_finto, monkeypatch):
+        ritardi = []
+        monkeypatch.setattr(mqtt_client_module.time, "sleep", lambda s: ritardi.append(s))
+        client_paho_finto.connect.side_effect = [OSError("x")] * 6 + [None]
+        client = GrapeHealthMqttClient(client_id="sensori-simulati")
+
+        client.connect(max_tentativi=7, ritardo_iniziale_secondi=10.0, ritardo_massimo_secondi=30.0)
+
+        assert ritardi == [10.0, 20.0, 30.0, 30.0, 30.0, 30.0], (
+            "Il ritardo deve raddoppiare (10, 20, 30) e poi restare bloccato al tetto (30), mai superarlo."
+        )
+
+    def test_max_tentativi_non_positivo_solleva_value_error_senza_dichiararsi_online(
+        self, client_paho_finto,
+    ):
+        """range(1, 0+1) sarebbe comunque un ciclo vuoto: senza questa
+        guardia esplicita, un max_tentativi non positivo salterebbe
+        silenziosamente ogni tentativo di connect() reale e procederebbe
+        comunque a loop_start()/pubblicare 'online', come se la connessione
+        fosse riuscita."""
+        client = GrapeHealthMqttClient(client_id="sensori-simulati")
+
+        with pytest.raises(ValueError, match="max_tentativi"):
+            client.connect(max_tentativi=0)
+
+        client_paho_finto.connect.assert_not_called()
+        client_paho_finto.loop_start.assert_not_called()
+
 
 class TestPublish:
-    def test_publish_riuscita_non_logga_alcun_warning(self, client_paho_finto, caplog):
+    def test_publish_riuscita_al_primo_tentativo_non_ritenta_e_non_logga_warning(self, client_paho_finto, caplog):
         client_paho_finto.publish.return_value = RisultatoPublishFinto(rc=0)
         client = GrapeHealthMqttClient(client_id="sensori-simulati")
 
         client.publish("grapehealth/parcellaA/meteo-A1/temperatura_aria", '{"valore": 28.5}')
 
-        assert not any("fallita" in r.message for r in caplog.records)
+        assert client_paho_finto.publish.call_count == 1
+        assert not any(r.levelname in ("WARNING", "ERROR") for r in caplog.records)
 
-    def test_publish_fallita_logga_un_warning_ma_non_solleva_eccezioni(self, client_paho_finto, caplog):
+    def test_publish_riesce_dopo_un_fallimento_transitorio_senza_perdere_la_lettura(
+        self, client_paho_finto, monkeypatch, caplog,
+    ):
+        monkeypatch.setattr(mqtt_client_module.time, "sleep", lambda s: None)
+        client_paho_finto.publish.side_effect = [
+            RisultatoPublishFinto(rc=4), RisultatoPublishFinto(rc=0),
+        ]
+        client = GrapeHealthMqttClient(client_id="sensori-simulati")
+
+        client.publish("grapehealth/parcellaA/meteo-A1/temperatura_aria", '{"valore": 28.5}')
+
+        assert client_paho_finto.publish.call_count == 2
+        assert any(r.levelname == "WARNING" for r in caplog.records), (
+            "Il tentativo fallito prima del successo deve comunque essere loggato."
+        )
+        assert not any(r.levelname == "ERROR" for r in caplog.records), (
+            "Una publish riuscita entro i tentativi previsti non è una lettura persa: niente ERROR."
+        )
+
+    def test_publish_fallita_ripetutamente_ritenta_il_numero_configurato_di_volte_poi_logga_errore(
+        self, client_paho_finto, monkeypatch, caplog,
+    ):
+        monkeypatch.setattr(mqtt_client_module.time, "sleep", lambda s: None)
         client_paho_finto.publish.return_value = RisultatoPublishFinto(rc=4)  # un codice di errore qualsiasi
         client = GrapeHealthMqttClient(client_id="sensori-simulati")
 
         client.publish("grapehealth/parcellaA/meteo-A1/temperatura_aria", '{"valore": 28.5}')
 
-        assert any("fallita" in r.message for r in caplog.records), (
-            "Una publish fallita a livello locale dovrebbe produrre un log di "
-            "warning, altrimenti passerebbe inosservata."
+        assert client_paho_finto.publish.call_count == MAX_TENTATIVI_PUBLISH, (
+            "Deve fermarsi esattamente al numero di tentativi configurato, non continuare all'infinito."
+        )
+        assert any(r.levelname == "ERROR" and "persa" in r.message for r in caplog.records), (
+            "Esauriti i tentativi la lettura è persa per davvero: deve restare visibile con un ERROR, "
+            "non un semplice warning indistinguibile da un blip transitorio."
         )
 
-    def test_publish_passa_qos_richiesto_al_client_sottostante(self, client_paho_finto):
+    def test_publish_passa_qos_e_retain_al_client_sottostante(self, client_paho_finto):
         client = GrapeHealthMqttClient(client_id="sensori-simulati")
 
         client.publish("un/topic", "payload", qos=1)
 
-        client_paho_finto.publish.assert_any_call("un/topic", "payload", qos=1)
+        client_paho_finto.publish.assert_any_call("un/topic", "payload", qos=1, retain=True)
 
 
 class TestDisconnect:

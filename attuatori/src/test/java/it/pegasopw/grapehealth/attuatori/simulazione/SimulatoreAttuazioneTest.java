@@ -1,7 +1,12 @@
 package it.pegasopw.grapehealth.attuatori.simulazione;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import it.pegasopw.grapehealth.attuatori.model.evento.AllertaEvent;
 import org.junit.jupiter.api.Test;
+import org.slf4j.LoggerFactory;
 import java.time.Instant;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -96,5 +101,37 @@ class SimulatoreAttuazioneTest {
     void sunburnSeveroAttivaNebulizzazioneDEmergenza() {
         assertEquals("nebulizzazione anti-scottatura d'emergenza",
                 simulatore.determinaAzione(eventoConLivello("sunburn", "severo")));
+    }
+
+    @Test
+    void avvisaConWarnSeSvernamentoOosporeArrivaComeSevero() {
+        Logger logger = (Logger) LoggerFactory.getLogger(SimulatoreAttuazione.class);
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        logger.addAppender(appender);
+        try {
+            simulatore.determinaAzione(eventoConLivello("svernamento_oospore", "severo"));
+            boolean warnTrovato = appender.list.stream().anyMatch(e ->
+                    e.getLevel() == Level.WARN && e.getFormattedMessage().contains("svernamento_oospore"));
+            assertTrue(warnTrovato, "un livello 'severo' inatteso deve generare un WARN");
+        } finally {
+            logger.detachAppender(appender);
+        }
+    }
+
+    @Test
+    void avvisaConWarnSeDannoRadicaleArrivaComeModerato() {
+        Logger logger = (Logger) LoggerFactory.getLogger(SimulatoreAttuazione.class);
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        logger.addAppender(appender);
+        try {
+            simulatore.determinaAzione(eventoConLivello("danno_radicale", "moderato"));
+            boolean warnTrovato = appender.list.stream().anyMatch(e ->
+                    e.getLevel() == Level.WARN && e.getFormattedMessage().contains("danno_radicale"));
+            assertTrue(warnTrovato, "un livello 'moderato' inatteso deve generare un WARN");
+        } finally {
+            logger.detachAppender(appender);
+        }
     }
 }

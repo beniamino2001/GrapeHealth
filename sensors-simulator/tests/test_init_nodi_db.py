@@ -7,7 +7,7 @@ principio già usato per mqtt_client.py con il client paho finto. La
 verifica contro un PostgreSQL vero resta compito delle sincronizzazioni
 manuali già documentate, non di questi test.
 
-Usa la config reale del progetto (config/nodi.yaml): 3 parcelle, 9 nodi.
+Usa la config reale del progetto (config/nodi.yaml): 3 parcelle, 12 nodi.
 
 Eseguire con: pytest -v (dalla cartella sensors-simulator/)
 """
@@ -100,6 +100,21 @@ class TestConnessioneFallita:
 
         assert exc_info.value.code == 1
         assert "PostgreSQL" in capsys.readouterr().err
+
+
+class TestTlsObbligatorio:
+    """pg_hba.conf accetta solo connessioni hostssl: senza sslmode esplicito
+    a verify-full, la connessione cifrerebbe comunque (default 'prefer' di
+    psycopg2) ma senza verificare il certificato del server contro la CA
+    locale — una password intercettabile via man-in-the-middle non sarebbe
+    diversa, in pratica, da nessuna cifratura affatto."""
+
+    def test_sslmode_verify_full_con_la_ca_locale(self, connessione_finta, cursore_finto):
+        init_nodi_db.main()
+
+        _, kwargs = psycopg2.connect.call_args
+        assert kwargs.get("sslmode") == "verify-full"
+        assert kwargs.get("sslrootcert") == str(init_nodi_db.CA_CERT_PATH)
 
 
 class TestSincronizzazioneRiuscita:

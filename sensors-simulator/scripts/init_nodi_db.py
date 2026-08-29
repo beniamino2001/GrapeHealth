@@ -38,6 +38,11 @@ import yaml
 from dotenv import load_dotenv
 
 CONFIG_PATH = Path(__file__).resolve().parent.parent / "config" / "nodi.yaml"
+# Stessa CA locale che firma postgres/rabbitmq/tomcat (v. scripts/genera-
+# certificati-tls.sh); risolta relativamente a questo file, non da variabile
+# d'ambiente, per funzionare identica sia da host sia dentro il container
+# Tomcat — stesso principio già usato per CONFIG_PATH qui sopra.
+CA_CERT_PATH = Path(__file__).resolve().parent.parent.parent / "certs" / "ca.crt"
 
 UPSERT_PARCELLA_QUERY = """
     INSERT INTO parcella (nome, varieta, colore_bacca, lunghezza_germoglio_cm,
@@ -84,7 +89,7 @@ DEACTIVATE_ORPHANED_NODI_QUERY = """
 
 
 def main():
-    load_dotenv()
+    load_dotenv(override=True)  # override=True per permettere a docker-compose di sovrascrivere .env locale
 
     with open(CONFIG_PATH, encoding="utf-8") as f:
         config = yaml.safe_load(f)
@@ -111,6 +116,13 @@ def main():
             dbname=os.environ.get("POSTGRES_DB", "grapehealth"),
             user=pg_user,
             password=pg_password,
+            # pg_hba.conf accetta solo connessioni "hostssl": senza sslmode
+            # esplicito, il default 'prefer' di psycopg2 cifrerebbe comunque
+            # (il server lo richiede) ma senza verificare il certificato
+            # contro alcuna CA — 'verify-full' verifica sia la catena sia
+            # che l'host a cui ci si connette corrisponda al certificato.
+            sslmode="verify-full",
+            sslrootcert=str(CA_CERT_PATH),
         )
     except psycopg2.OperationalError as exc:
         print(f"Impossibile connettersi a PostgreSQL: {exc}", file=sys.stderr)

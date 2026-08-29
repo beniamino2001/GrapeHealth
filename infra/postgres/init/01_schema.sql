@@ -57,7 +57,7 @@ CREATE TABLE regola (
 
 -- Una riga per ogni singola condizione soglia della regola: modella naturalmente sia le
 -- regole a soglia singola (ondata di calore) sia quelle a più condizioni (tre dieci: tre
--- condizioni simultanee; sunburn: quattro coppie soglia/durata LT50 da Schmidt et al. 2023).
+-- condizioni simultanee; sunburn: quattro coppie soglia/durata LT50 da Müller et al. 2023).
 CREATE TABLE regola_soglia (
     id                      BIGSERIAL PRIMARY KEY,
     regola_codice           VARCHAR(64) NOT NULL REFERENCES regola(codice),
@@ -115,7 +115,12 @@ CREATE TABLE regola_azione (
     id             BIGSERIAL PRIMARY KEY,
     regola_codice  VARCHAR(64) NOT NULL REFERENCES regola(codice),
     azione_codice  VARCHAR(32) NOT NULL REFERENCES azione_mitigazione(codice),
-    note           TEXT
+    note           TEXT,
+    -- A differenza di regola_soglia (dove più righe condividono legittimamente
+    -- regola+parametro+livello, distinte da durata/operatore), qui non esiste un
+    -- caso d'uso in cui la stessa azione debba comparire due volte per la stessa
+    -- regola: il vincolo cattura un errore di seed, non un caso legittimo.
+    UNIQUE (regola_codice, azione_codice)
 );
 
 -- =====================================================================
@@ -168,7 +173,16 @@ CREATE TABLE allerta (
     risoluzione_pianificata_il TIMESTAMPTZ,
     risolta_il          TIMESTAMPTZ,
     stato               VARCHAR(16) NOT NULL DEFAULT 'attiva'
-                            CHECK (stato IN ('attiva', 'risolta'))
+                            CHECK (stato IN ('attiva', 'risolta')),
+    -- Un'allerta 'risolta' deve avere una data di risoluzione, una 'attiva' non
+    -- ancora: il solo chiamante che scrive questi due campi (AllertaEntity.risolvi())
+    -- li tiene già allineati, ma questo vincolo dà la stessa rete di sicurezza a
+    -- livello database che lo schema applica ovunque altrove a un dominio di valori.
+    CHECK (
+        (stato = 'attiva'  AND risolta_il IS NULL)
+        OR
+        (stato = 'risolta' AND risolta_il IS NOT NULL)
+    )
 );
 
 CREATE INDEX idx_allerta_stato ON allerta (stato, generata_il DESC);
@@ -233,7 +247,7 @@ INSERT INTO regola (codice, descrizione, fonte_bibliografica) VALUES
         'Baldacci, 1947; tabella di incubazione di Goidanich, 1957/1964'),
     ('sunburn',
         'Scottatura da esposizione solare della bacca (logica intensità×durata)',
-        'Gambetta et al., 2021; Schmidt et al., 2023'),
+        'Gambetta et al., 2021; Müller et al., 2023'),
     ('svernamento_oospore',
         'Temperatura del suolo favorevole alla germinazione delle oospore svernanti di Plasmopara viticola',
         'Si Ammour et al., 2020'),
@@ -261,10 +275,10 @@ INSERT INTO regola_soglia (regola_codice, parametro, livello_rischio, operatore,
 
     -- Sunburn: soglia di ingresso + quattro coppie soglia/durata di dose letale (LT50)
     ('sunburn', 'temperatura_bacca', 'moderato', '>=', 45.00, 'C', NULL, 'Isteresi di uscita 1°C; range di rischio 45-49°C'),
-    ('sunburn', 'temperatura_bacca', 'severo',   '>=', 53.79, 'C', 15, 'Dose letale (LT50), Schmidt et al. 2023'),
-    ('sunburn', 'temperatura_bacca', 'severo',   '>=', 49.94, 'C', 30, 'Dose letale (LT50), Schmidt et al. 2023'),
-    ('sunburn', 'temperatura_bacca', 'severo',   '>=', 47.82, 'C', 60, 'Dose letale (LT50), Schmidt et al. 2023'),
-    ('sunburn', 'temperatura_bacca', 'severo',   '>=', 47.06, 'C', 90, 'Dose letale (LT50), Schmidt et al. 2023'),
+    ('sunburn', 'temperatura_bacca', 'severo',   '>=', 53.79, 'C', 15, 'Dose letale (LT50), Müller et al. 2023'),
+    ('sunburn', 'temperatura_bacca', 'severo',   '>=', 49.94, 'C', 30, 'Dose letale (LT50), Müller et al. 2023'),
+    ('sunburn', 'temperatura_bacca', 'severo',   '>=', 47.82, 'C', 60, 'Dose letale (LT50), Müller et al. 2023'),
+    ('sunburn', 'temperatura_bacca', 'severo',   '>=', 47.06, 'C', 90, 'Dose letale (LT50), Müller et al. 2023'),
     
     -- Svernamento oospore: due soglie (minima e massima), unico livello di rischio
     ('svernamento_oospore', 'temperatura_suolo', 'moderato', '>=', 12.0, 'C', NULL, 'Soglia minima di germinazione, Si Ammour et al. 2020'),
@@ -306,6 +320,6 @@ INSERT INTO regola_azione (regola_codice, azione_codice, note) VALUES
     ('ondata_di_calore', 'nebulizzazione',
         'Sistema di nebulizzazione automatico attivato a 35°C su Sangiovese/Montepulciano, Valentini et al. 2024'),
     ('sunburn', 'nebulizzazione', 'Unica azione oggi effettivamente scelta da MappatoreAzione per questa regola'),
-    ('sunburn', 'applicazione_caolino', 'Bacche fino a 6-7,6°C più fredde del controllo non trattato'),
+    ('sunburn', 'applicazione_caolino', 'Bacche fino a 5,96-7,01°C più fredde del controllo, valore specifico del caolino'),
     ('sunburn', 'rete_ombreggiante', 'Studiata in combinazione con il caolino negli stessi due studi'),
     ('sunburn', 'applicazione_zeolite', 'Riduce necrosi e shrivel se combinata con irrigazione in fase di maturazione');

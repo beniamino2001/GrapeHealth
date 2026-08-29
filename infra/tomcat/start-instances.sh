@@ -69,6 +69,12 @@ for istanza in $TUTTE_LE_ISTANZE; do
   fi
   export CATALINA_BASE="${GRAPEHEALTH_INSTANCES}/${istanza}"
   export LOGGING_FILE_NAME="/opt/grapehealth/logs/grapehealth-${istanza}.log"
+
+  SERVER_XML_TEMPLATE="${CATALINA_BASE}/conf/server.xml.template"
+  if [[ -f "$SERVER_XML_TEMPLATE" ]]; then
+    sed "s/__TLS_KEYSTORE_PASSWORD__/${TLS_KEYSTORE_PASSWORD}/g" "$SERVER_XML_TEMPLATE" > "${CATALINA_BASE}/conf/server.xml"
+  fi
+
   echo "  - $istanza: avvio (CATALINA_BASE=${CATALINA_BASE})"
   ( cd "$CATALINA_BASE" && "${CATALINA_HOME}/bin/catalina.sh" run ) &
   PID_LIST+=($!)

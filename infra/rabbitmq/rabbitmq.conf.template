@@ -1,0 +1,48 @@
+# Config aggiuntiva RabbitMQ per GrapeHealth
+#
+# Le porte usate in questo file (5671, 8883, 15671) sono definite in .env
+# (RABBITMQ_AMQP_PORT, MQTT_PORT, RABBITMQ_MANAGEMENT_PORT_TLS).
+#
+# I messaggi MQTT pubblicati dai sensori vengono automaticamente instradati sull'exchange topic "amq.topic": 
+# il topic MQTT "grapehealth/parcellaA/nodo3/temp" diventa la routing key AMQP "grapehealth.parcellaA.nodo3.temp" (i "/" diventano ".").
+# Il decision engine e gli altri consumer si legano a questo stesso exchange con binding standard (es. "grapehealth.#").
+
+mqtt.allow_anonymous = false
+mqtt.vhost = /
+mqtt.exchange = amq.topic
+
+# Durata massima (in secondi) di una sessione MQTT persistente prima di essere scartata se il client non si riconnette (30 minuti)
+mqtt.max_session_expiry_interval_seconds = 1800
+
+# Utente amministrativo caricato da file al boot (password già hashata), invece che
+# da RABBITMQ_DEFAULT_USER/PASS: v. infra/rabbitmq/definitions.json, generato da scripts/setup-credentials.sh.
+management.load_definitions = /etc/rabbitmq/definitions.json
+
+# TLS per AMQP: il listener in chiaro è disattivato, non solo affiancato da uno cifrato
+listeners.tcp = none
+listeners.ssl.default = __RABBITMQ_AMQP_PORT__
+ssl_options.cacertfile = /etc/rabbitmq/certs/ca.crt
+ssl_options.certfile = /etc/rabbitmq/certs/rabbitmq.crt
+ssl_options.keyfile = /etc/rabbitmq/certs/rabbitmq.key
+ssl_options.versions.1 = tlsv1.3
+ssl_options.versions.2 = tlsv1.2
+
+# TLS per MQTT (pubblicazione dai sensori simulati)
+mqtt.listeners.tcp = none
+mqtt.listeners.ssl.default = __MQTT_PORT__
+
+# TLS per la Management UI, stesso certificato già usato per AMQP/MQTT — qui la porta in
+# chiaro (15672) resta attiva insieme a quella cifrata, a differenza di AMQP/MQTT: è una
+# console di amministrazione, non un canale dati, e disattivarla del tutto renderebbe più
+# scomodo il troubleshooting durante lo sviluppo senza un beneficio di sicurezza proporzionato
+# in un ambiente locale.
+management.ssl.port = __RABBITMQ_MANAGEMENT_PORT_TLS__
+management.ssl.cacertfile = /etc/rabbitmq/certs/ca.crt
+management.ssl.certfile = /etc/rabbitmq/certs/rabbitmq.crt
+management.ssl.keyfile = /etc/rabbitmq/certs/rabbitmq.key
+
+# HSTS: RabbitMQ stesso lo segnala come mancante nei log all'avvio del listener TLS della
+# Management UI ("HSTS disabled ... consider enabling strict_transport_security option").
+# Dice al browser di ricordare per un anno di usare sempre HTTPS con questo host, anche se
+# in futuro qualcuno digitasse http:// per errore.
+management.hsts.policy = max-age=31536000; includeSubDomains

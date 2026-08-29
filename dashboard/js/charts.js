@@ -128,6 +128,13 @@ function gestisciStatoVuotoGrafico(canvasId, vuoto) {
 
 let alertTypeChart = null;
 
+// Popolato da renderAlertTypeChart() sotto, letto da alerts.js (filtraPerTipoAllerta,
+// refreshAllerteAttive) per risalire dal tipo cliccato sulla ciambella all'elenco di
+// allerte di quel tipo: condiviso fra i due file tramite lo scope globale di window,
+// come formattaDurata in api.js. Dichiarato qui esplicitamente invece di lasciarlo
+// creare come globale implicito dalla sola assegnazione dentro la funzione.
+let ultimeAllertePerTipo = {};
+
 // Stesso principio di COLORI_PARCELLA sopra, applicato ai sette tipi di allerta.
 const COLORI_TIPO = {
   stress_idrico: '#5b8c5a',

@@ -15,7 +15,7 @@ import java.util.Optional;
  * Scottatura (sunburn) da esposizione della bacca. Soglia di ingresso nel
  * range di rischio ("moderato") e le quattro coppie soglia/durata di dose
  * letale ("severo") lette a runtime da regola_soglia: la prima da Gambetta
- * et al. (2021), le quattro coppie da Schmidt et al. (2023) — più lunga
+ * et al. (2021), le quattro coppie da Müller et al. (2023) — più lunga
  * l'esposizione, più bassa la soglia di dose letale. Isteresi di 1°C in
  * uscita dal range di rischio — non presente come colonna in regola_soglia,
  * resta costante Java.

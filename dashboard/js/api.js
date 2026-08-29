@@ -3,7 +3,7 @@
 // condivisa (fetchJSON), la normalizzazione della risposta (array semplice o
 // pagina Spring Data), e le cinque chiamate che il resto della dashboard usa
 // per parlare col backend.
-const API_BASE = 'http://localhost:8084/api';
+const API_BASE = 'https://localhost:8084/api';
 
 function buildQuery(params) {
   const coppie = [];

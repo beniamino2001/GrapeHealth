@@ -75,6 +75,12 @@ class SpecificationsIntegrationTest {
     }
 
     private long inserisciAllerta(String stato) {
+        if ("risolta".equals(stato)) {
+            return jdbcTemplate.queryForObject(
+                    "INSERT INTO allerta (tipo, livello_rischio, descrizione, regola_codice, stato, risolta_il) " +
+                            "VALUES ('sunburn', 'moderato', 'Fixture di test', 'sunburn', 'risolta', ?) RETURNING id",
+                    Long.class, Timestamp.from(Instant.now()));
+        }
         return jdbcTemplate.queryForObject(
                 "INSERT INTO allerta (tipo, livello_rischio, descrizione, regola_codice, stato) " +
                         "VALUES ('sunburn', 'moderato', 'Fixture di test', 'sunburn', ?) RETURNING id",

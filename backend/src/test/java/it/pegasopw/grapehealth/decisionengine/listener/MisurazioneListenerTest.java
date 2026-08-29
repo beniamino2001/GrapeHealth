@@ -5,6 +5,8 @@ import it.pegasopw.grapehealth.decisionengine.publisher.AllertaPublisher;
 import it.pegasopw.grapehealth.decisionengine.regole.RegolaRischio;
 import it.pegasopw.grapehealth.decisionengine.stato.StatoRischio;
 import it.pegasopw.grapehealth.decisionengine.cache.CacheNodiAttivi;
+import jakarta.validation.Validation;
+import jakarta.validation.Validator;
 import org.junit.jupiter.api.Test;
 import org.springframework.amqp.core.Message;
 import org.springframework.amqp.core.MessageProperties;
@@ -22,6 +24,10 @@ import static org.mockito.Mockito.*;
 class MisurazioneListenerTest {
 
     private final JsonMapper jsonMapper = new JsonMapper();
+    // Validator reale (non un mock): qui interessa il comportamento vero di
+    // jakarta.validation sulle annotazioni di MisurazioneMessage, non uno
+    // stub che risponderebbe sempre "nessuna violazione".
+    private final Validator validator = Validation.buildDefaultValidatorFactory().getValidator();
 
     private Message messaggio(String routingKey, String body) {
         MessageProperties proprieta = new MessageProperties();
@@ -48,7 +54,8 @@ class MisurazioneListenerTest {
         // deserializzarlo come misurazione, la chiamata sotto lancerebbe
         RegolaRischio regola = mock(RegolaRischio.class);
         AllertaPublisher publisher = mock(AllertaPublisher.class);
-        MisurazioneListener listener = new MisurazioneListener(jsonMapper, List.of(regola), publisher, new StatoRischio(), cacheNodiAttiviCheAccettaTutto());
+        MisurazioneListener listener = new MisurazioneListener(jsonMapper, List.of(regola), publisher,
+                new StatoRischio(), cacheNodiAttiviCheAccettaTutto(), validator);
 
         listener.onMessage(messaggio("grapehealth.status.meteo-A1", "online"));
 
@@ -66,7 +73,8 @@ class MisurazioneListenerTest {
 
         AllertaPublisher publisher = mock(AllertaPublisher.class);
         MisurazioneListener listener = new MisurazioneListener(jsonMapper,
-                List.of(regolaCheScatta, regolaCheNonScatta), publisher, new StatoRischio(),cacheNodiAttiviCheAccettaTutto());
+                List.of(regolaCheScatta, regolaCheNonScatta), publisher, new StatoRischio(),
+                cacheNodiAttiviCheAccettaTutto(), validator);
 
         listener.onMessage(messaggio("grapehealth.idrico.parcellaA.idrico-A1",
                 jsonMisurazione("idrico-A1", "parcellaA", "psi_stem", -1.3)));
@@ -90,7 +98,8 @@ class MisurazioneListenerTest {
 
         AllertaPublisher publisher = mock(AllertaPublisher.class);
         MisurazioneListener listener = new MisurazioneListener(jsonMapper,
-                List.of(prima, seconda), publisher, new StatoRischio(),cacheNodiAttiviCheAccettaTutto());
+                List.of(prima, seconda), publisher, new StatoRischio(),
+                cacheNodiAttiviCheAccettaTutto(), validator);
 
         listener.onMessage(messaggio("grapehealth.meteo.parcellaA.meteo-A1",
                 jsonMisurazione("meteo-A1", "parcellaA", "temperatura_aria", 36.0)));
@@ -105,7 +114,8 @@ class MisurazioneListenerTest {
         // RabbitConfig possa scartare il messaggio invece di farlo
         // ripubblicare all'infinito dal container AMQP
         MisurazioneListener listener = new MisurazioneListener(jsonMapper, List.of(),
-                mock(AllertaPublisher.class), new StatoRischio(),cacheNodiAttiviCheAccettaTutto());
+                mock(AllertaPublisher.class), new StatoRischio(),
+                cacheNodiAttiviCheAccettaTutto(), validator);
 
         Message messaggioMalformato = messaggio("grapehealth.meteo.parcellaA.meteo-A1", "{questo non è JSON valido");
 
@@ -116,10 +126,72 @@ class MisurazioneListenerTest {
     void riconosceUnSecondoMessaggioDiStatoConNodoDiverso() {
         RegolaRischio regola = mock(RegolaRischio.class);
         AllertaPublisher publisher = mock(AllertaPublisher.class);
-        MisurazioneListener listener = new MisurazioneListener(jsonMapper, List.of(regola), publisher, new StatoRischio(),cacheNodiAttiviCheAccettaTutto());
+        MisurazioneListener listener = new MisurazioneListener(jsonMapper, List.of(regola), publisher,
+                new StatoRischio(), cacheNodiAttiviCheAccettaTutto(), validator);
 
         listener.onMessage(messaggio("grapehealth.status.bacca-C1", "offline"));
 
         verifyNoInteractions(regola, publisher);
+    }
+
+    // --- Filtro CacheNodiAttivi (v. §1.7 del recap di fase 3): la distinzione
+    // a tre stati (attivo/disattivato/sconosciuto) non era mai stata
+    // esercitata da un test unitario, solo verificata a mano sul log reale. ---
+
+    @Test
+    void scartaSilenziosamenteUnaMisurazioneDaNodoEsplicitamenteDisattivato() {
+        RegolaRischio regola = mock(RegolaRischio.class);
+        AllertaPublisher publisher = mock(AllertaPublisher.class);
+        CacheNodiAttivi cacheNodiAttivi = mock(CacheNodiAttivi.class);
+        when(cacheNodiAttivi.attivo("meteo-A1")).thenReturn(false);
+        MisurazioneListener listener = new MisurazioneListener(jsonMapper, List.of(regola), publisher,
+                new StatoRischio(), cacheNodiAttivi, validator);
+
+        listener.onMessage(messaggio("grapehealth.meteo.parcellaA.meteo-A1",
+                jsonMisurazione("meteo-A1", "parcellaA", "temperatura_aria", 36.0)));
+
+        // Nessuna regola deve mai vedere questa misurazione: un nodo
+        // esplicitamente rimosso dalla topologia non deve poter generare
+        // allerte come se fosse ancora valido.
+        verifyNoInteractions(regola, publisher);
+    }
+
+    @Test
+    void elaboraNormalmenteUnaMisurazioneDaNodoSconosciutoInAnagrafica() {
+        RegolaRischio regola = mock(RegolaRischio.class);
+        when(regola.valuta(any(), any())).thenReturn(Optional.empty());
+        AllertaPublisher publisher = mock(AllertaPublisher.class);
+        CacheNodiAttivi cacheNodiAttivi = mock(CacheNodiAttivi.class);
+        when(cacheNodiAttivi.attivo("meteo-X9")).thenReturn(null); // mai sincronizzato, non "disattivato"
+        MisurazioneListener listener = new MisurazioneListener(jsonMapper, List.of(regola), publisher,
+                new StatoRischio(), cacheNodiAttivi, validator);
+
+        listener.onMessage(messaggio("grapehealth.meteo.parcellaA.meteo-X9",
+                jsonMisurazione("meteo-X9", "parcellaA", "temperatura_aria", 36.0)));
+
+        // Un nodo mai visto in anagrafica NON va confuso con uno disattivato:
+        // la misurazione deve comunque raggiungere le regole.
+        verify(regola).valuta(any(), any());
+    }
+
+    // --- Validazione (v. §1 punto (a) dell'audit): MisurazioneMessage ora
+    // dichiara @NotBlank/@NotNull sui campi obbligatori; il listener deve
+    // rifiutare esplicitamente un messaggio sintatticamente valido come JSON
+    // ma con un campo obbligatorio mancante, invece di lasciarlo scivolare
+    // dentro le regole con un valore nullo. ---
+
+    @Test
+    void propagaEccezioneSeUnCampoObbligatorioDellaMisurazioneManca() {
+        MisurazioneListener listener = new MisurazioneListener(jsonMapper, List.of(),
+                mock(AllertaPublisher.class), new StatoRischio(),
+                cacheNodiAttiviCheAccettaTutto(), validator);
+
+        // "nodo" assente: sintatticamente JSON valido, semanticamente incompleto
+        String corpoConNodoMancante = """
+                {"parcella":"parcellaA","parametro":"temperatura_aria","valore":36.0,\
+                "unita_misura":"C","timestamp_rilevazione":"2026-04-15T10:00:00Z"}""";
+
+        assertThrows(RuntimeException.class, () -> listener.onMessage(
+                messaggio("grapehealth.meteo.parcellaA.meteo-A1", corpoConNodoMancante)));
     }
 }

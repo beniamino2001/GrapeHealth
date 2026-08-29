@@ -60,6 +60,23 @@ public class SchedulerRisoluzioneAllerte {
         log.info("Risoluzione pianificata: allertaId={}, prevista alle {}", allerta.getId(), scadenza);
     }
 
+    // Risolve subito un'allerta ancora attiva, senza aspettare la sua
+    // scadenza pianificata: usata da AllertaPersistenceListener quando il
+    // livello di rischio per lo stesso nodo/tipo cambia (es. moderato a
+    // severo) prima che l'allerta al livello precedente si sia risolta da
+    // sola - la condizione è cambiata, non ha senso lasciarla scaduta in
+    // parallelo alla nuova. Rimuove anche l'eventuale scadenza pendente in
+    // memoria, altrimenti il prossimo sweep di risolviScadute() la
+    // ririsolverebbe inutilmente, sovrascrivendo risolta_il con un
+    // timestamp successivo e sbagliato.
+    @Transactional
+    public void risolviOra(AllertaEntity allerta) {
+        scadenzePerAllerta.remove(allerta.getId());
+        allerta.risolvi(Instant.now());
+        allertaRepository.save(allerta);
+        log.info("Allerta risolta anticipatamente: id={}, risoltaIl={}", allerta.getId(), allerta.getRisoltaIl());
+    }
+
     @Scheduled(fixedDelay = 5000)
     @Transactional
     public void risolviScadute() {
