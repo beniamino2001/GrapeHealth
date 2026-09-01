@@ -1,7 +1,10 @@
 .env
-secrets/*
-!secrets/*.example
+.env [0-9]*
+secrets/*.txt
+secrets/* [0-9].txt
 infra/rabbitmq/definitions.json
+infra/rabbitmq/definitions [0-9]*.json
+certs/*
 target/
 *.class
 *.jar
@@ -22,4 +25,3 @@ dist/
 .vscode/
 .github/
 sensors-simulator/.state/
-certs/*

@@ -28,8 +28,8 @@ class StoricoMisurazioniServiceTest {
     private final NodoResolver nodoResolver = mock(NodoResolver.class);
     private final CacheNodi cacheNodi = mock(CacheNodi.class);
     private final CacheParcelle cacheParcelle = mock(CacheParcelle.class);
-    private final StoricoMisurazioniService service =
-            new StoricoMisurazioniService(misurazioneRepository, nodoResolver, cacheNodi, cacheParcelle);
+    private final StoricoMisurazioniService service = new StoricoMisurazioniService(misurazioneRepository, nodoResolver,
+            cacheNodi, cacheParcelle);
 
     private final Pageable pageable = PageRequest.of(0, 50);
 
@@ -78,5 +78,14 @@ class StoricoMisurazioniServiceTest {
         assertEquals(3, risultato.getTotalElements());
         assertEquals(3, risultato.getContent().size());
         verify(misurazioneRepository, never()).findAll(any(Specification.class), any(Pageable.class));
+    }
+
+    @Test
+    void finestraTemporaleOltreIlLimiteLanciaEccezione() {
+        when(nodoResolver.nodoIdsPerParcella(null)).thenReturn(null); // <- riga aggiunta
+        when(misurazioneRepository.count(any(Specification.class))).thenReturn(20_001L);
+        assertThrows(ParametriNonValidiException.class,
+                () -> service.cerca(null, null, Instant.parse("2026-01-01T00:00:00Z"),
+                        Instant.parse("2026-12-31T00:00:00Z"), Pageable.unpaged()));
     }
 }

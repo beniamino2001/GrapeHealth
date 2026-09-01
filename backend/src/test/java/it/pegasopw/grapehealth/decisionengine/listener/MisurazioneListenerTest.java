@@ -194,4 +194,17 @@ class MisurazioneListenerTest {
         assertThrows(RuntimeException.class, () -> listener.onMessage(
                 messaggio("grapehealth.meteo.parcellaA.meteo-A1", corpoConNodoMancante)));
     }
+
+    @Test
+    void propagaEccezioneSeIlNodoContieneUnCarattereCheAltererebbeLaRoutingKey() {
+        // un punto in "nodo" spezzerebbe la struttura di "allerta.<tipo>.<parcella>.<nodo>"
+        // pubblicata da AllertaPublisher, non solo il suo contenuto testuale
+        MisurazioneListener listener = new MisurazioneListener(jsonMapper, List.of(),
+                mock(AllertaPublisher.class), new StatoRischio(),
+                cacheNodiAttiviCheAccettaTutto(), validator);
+
+        assertThrows(RuntimeException.class, () -> listener.onMessage(
+                messaggio("grapehealth.meteo.parcellaA.meteo-A1",
+                        jsonMisurazione("meteo-A1.evil#", "parcellaA", "temperatura_aria", 36.0))));
+    }
 }

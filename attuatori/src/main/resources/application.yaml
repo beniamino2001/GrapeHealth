@@ -29,3 +29,10 @@ logging:
 
 server:
   port: 8082
+  error:
+    include-message: never
+    include-stacktrace: never
+    include-binding-errors: never
+    include-exception: false
+    whitelabel:
+      enabled: false

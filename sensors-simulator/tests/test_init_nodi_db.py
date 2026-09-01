@@ -180,3 +180,75 @@ class TestGuardiaConfigVuota:
                                 if c.args[0] == init_nodi_db.DEACTIVATE_ORPHANED_NODI_QUERY]
         assert len(chiamate_deactivate) == 0
         assert "Attenzione" in capsys.readouterr().err
+
+    def test_config_con_la_chiave_parcelle_del_tutto_assente_si_comporta_come_vuota(
+        self, monkeypatch, connessione_finta, cursore_finto, capsys
+    ):
+        """A differenza di {'parcelle': []}, qui la chiave manca del tutto:
+        config.get('parcelle') restituisce None, non una lista — 'or []' deve
+        normalizzare entrambi i casi allo stesso comportamento, non sollevare
+        un KeyError non gestito su config['parcelle']."""
+        monkeypatch.setattr("yaml.safe_load", MagicMock(return_value={}))
+
+        init_nodi_db.main()
+
+        assert cursore_finto.execute.call_args_list == []
+        assert "Attenzione" in capsys.readouterr().err
+
+class TestCampoMancanteInUnaParcellaONodo:
+    """A differenza della sezione 'parcelle' mancante nel suo insieme (un
+    caso trattato come 'niente da sincronizzare', non un errore), una
+    parcella presente ma con un singolo campo assente è quasi certamente un
+    errore di battitura nel YAML: qui ci si aspetta un'uscita immediata con
+    un messaggio che nomini il campo, non un KeyError grezzo a metà
+    transazione né un proseguimento silenzioso con un dato incompleto."""
+
+    @pytest.mark.parametrize("campo_da_rimuovere", [
+        "nome", "varieta", "colore_bacca", "stadio_fenologico_germogli_cm",
+        "latitudine", "longitudine", "nodi",
+    ])
+    def test_campo_parcella_mancante_esce_con_codice_1_e_nomina_il_campo(
+        self, monkeypatch, connessione_finta, cursore_finto, capsys, campo_da_rimuovere
+    ):
+        config_reale = init_nodi_db.yaml.safe_load(open(init_nodi_db.CONFIG_PATH, encoding="utf-8"))
+        del config_reale["parcelle"][0][campo_da_rimuovere]
+        monkeypatch.setattr("yaml.safe_load", MagicMock(return_value=config_reale))
+
+        with pytest.raises(SystemExit) as exc_info:
+            init_nodi_db.main()
+
+        assert exc_info.value.code == 1
+        assert campo_da_rimuovere in capsys.readouterr().err
+
+    @pytest.mark.parametrize("campo_da_rimuovere", ["codice", "tipo"])
+    def test_campo_nodo_mancante_esce_con_codice_1_e_nomina_il_campo(
+        self, monkeypatch, connessione_finta, cursore_finto, capsys, campo_da_rimuovere
+    ):
+        config_reale = init_nodi_db.yaml.safe_load(open(init_nodi_db.CONFIG_PATH, encoding="utf-8"))
+        del config_reale["parcelle"][0]["nodi"][0][campo_da_rimuovere]
+        monkeypatch.setattr("yaml.safe_load", MagicMock(return_value=config_reale))
+
+        with pytest.raises(SystemExit) as exc_info:
+            init_nodi_db.main()
+
+        assert exc_info.value.code == 1
+        assert campo_da_rimuovere in capsys.readouterr().err
+
+    def test_transazione_annullata_non_lascia_upsert_parziali_visibili(
+        self, monkeypatch, connessione_finta, cursore_finto, capsys
+    ):
+        """Il secondo nodo/parcella malformato non deve impedire il rollback
+        di quanto già eseguito nella stessa transazione — verificato
+        controllando che main() propaghi l'uscita invece di proseguire, dato
+        che il rollback vero e proprio è responsabilità di 'with conn', già
+        coperta da TestConnessioneFallita per il caso simmetrico."""
+        config_reale = init_nodi_db.yaml.safe_load(open(init_nodi_db.CONFIG_PATH, encoding="utf-8"))
+        del config_reale["parcelle"][1]["colore_bacca"]
+        monkeypatch.setattr("yaml.safe_load", MagicMock(return_value=config_reale))
+
+        with pytest.raises(SystemExit):
+            init_nodi_db.main()
+
+        chiamate_deactivate = [c for c in cursore_finto.execute.call_args_list
+                                if c.args[0] == init_nodi_db.DEACTIVATE_ORPHANED_NODI_QUERY]
+        assert len(chiamate_deactivate) == 0

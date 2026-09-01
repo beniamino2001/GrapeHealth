@@ -1,14 +1,20 @@
 package it.pegasopw.grapehealth.decisionengine.stato;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
+import java.time.temporal.ChronoUnit;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
 
 public class StatoRischio {
+
+    private static final Logger log = LoggerFactory.getLogger(StatoRischio.class);
 
     private record LetturaTemporale(Instant timestamp, double valore) {}
 
@@ -78,6 +84,19 @@ public class StatoRischio {
     public void registraLetturaGiornalieraPioggia(String chiave, Instant timestamp, double valore) {
         LocalDate giorno = timestamp.atZone(ZoneOffset.UTC).toLocalDate();
         LocalDate giornoPrecedente = ultimoGiornoPioggiaRegistrato.put(chiave, giorno);
+        if (giornoPrecedente != null) {
+            long giorniSaltati = ChronoUnit.DAYS.between(giornoPrecedente, giorno) - 1;
+            if (giorniSaltati > 0) {
+                // Sintomo tipico di un time_scale del simulatore molto elevato (oltre
+                // 9000, v. sensors-simulator PAVIMENTO_SLEEP_REALE_SECONDI): l'intervallo
+                // reale minimo fra due tick fa allungare l'intervallo simulato oltre le
+                // 24 ore. La pioggia caduta nei giorni saltati non entra nella finestra
+                // di accumulo: non recuperabile qui senza un'assunzione non verificabile
+                // su cosa sia realmente accaduto in quei giorni.
+                log.warn("Rilevato salto di {} giorno/i simulato/i senza letture di pioggia per {}: da {} a {}",
+                        giorniSaltati, chiave, giornoPrecedente, giorno);
+            }
+        }
         if (!giorno.equals(giornoPrecedente)) {
             registraLetturaTemporale(chiave, timestamp, valore);
         }
@@ -127,6 +146,17 @@ public class StatoRischio {
         if (precedente.giorno().equals(giorno)) {
             accumuloGiorno.put(chiave, precedente.aggiungi(temperatura, umidita));
             return Optional.empty();
+        }
+
+        long giorniSaltati = ChronoUnit.DAYS.between(precedente.giorno(), giorno) - 1;
+        if (giorniSaltati > 0) {
+            // Stesso fenomeno documentato in registraLetturaGiornalieraPioggia: a
+            // time_scale molto elevati un tick può superare le 24 ore simulate. Il
+            // giorno saltato non contribuisce mai all'incubazione di Goidanich -
+            // sottostima silenziosa, non un falso allarme, ma non recuperabile qui
+            // senza un'assunzione su temperatura/umidità non osservate in quei giorni.
+            log.warn("Rilevato salto di {} giorno/i simulato/i senza letture per {}: da {} a {}, " +
+                    "l'incubazione di Goidanich non ne terrà conto", giorniSaltati, chiave, precedente.giorno(), giorno);
         }
 
         accumuloGiorno.put(chiave, new AccumuloGiorno(giorno, temperatura, umidita, 1));

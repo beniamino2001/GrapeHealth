@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+GRAPEHEALTH_ENV_FILE="__ENV_FILE_PATH__"
+
+# Se POSTGRES_USER è già nell'ambiente del processo (Docker Compose lo inietta con
+# env_file quando questa istanza gira in container), le variabili ci sono già:
+# risorgere qui .env sarebbe un lavoro ridondante, e dentro il container questo
+# percorso punta comunque a un file che lì non esiste. In locale, fuori da Docker
+# (dove POSTGRES_USER non è pre-impostata), il comportamento resta quello di sempre.
+if [[ -n "$POSTGRES_USER" ]]; then
+  :
+elif [[ ! -f "$GRAPEHEALTH_ENV_FILE" ]]; then
+  echo "ATTENZIONE: $GRAPEHEALTH_ENV_FILE non trovato, l'app partirà senza credenziali." >&2
+else
+  set -a
+  source "$GRAPEHEALTH_ENV_FILE"
+  set +a
+fi

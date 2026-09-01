@@ -89,12 +89,14 @@ DEACTIVATE_ORPHANED_NODI_QUERY = """
 
 
 def main():
-    load_dotenv(override=True)  # override=True per permettere a docker-compose di sovrascrivere .env locale
+    load_dotenv(override=True)  # protegge dal caso in cui una variabile stantia già esportata nella
+    # shell (es. da una sessione precedente) prevalga su un .env appena rigenerato — rilevante solo
+    # nell'esecuzione da host: dentro il container Tomcat, .env non esiste come file (v. sopra)
 
     with open(CONFIG_PATH, encoding="utf-8") as f:
         config = yaml.safe_load(f)
 
-    # Se POSTGRES_USER/POSTGRES_PASSWORD non sono nell'ambiente (es. .env non generato con scripts/setup-credentials.sh),
+    # Se POSTGRES_USER/POSTGRES_PASSWORD non sono nell'ambiente (es. .env non generato con scripts/setup-credenziali.sh),
     # lo script si interrompe subito con un messaggio esplicativo invece di tentare l'accesso con la credenziale condivisa in chiaro.
     try:
         pg_user = os.environ["POSTGRES_USER"]
@@ -102,7 +104,7 @@ def main():
     except KeyError as exc:
         print(
             f"Variabile d'ambiente {exc} mancante: rigenera le credenziali con "
-            "./scripts/setup-credentials.sh dalla root del repository, poi rilancia "
+            "./scripts/setup-credenziali.sh dalla root del repository, poi rilancia "
             "questo script da host oppure ricrea il container ('docker compose up -d "
             "--build') se stai leggendo questo messaggio nei suoi log.",
             file=sys.stderr,
@@ -132,22 +134,43 @@ def main():
     totale_nodi = 0
     codici_correnti = []
     with conn, conn.cursor() as cur:
-        for parcella in config["parcelle"]:
-            cur.execute(UPSERT_PARCELLA_QUERY, (
-                parcella["nome"],
-                parcella["varieta"],
-                parcella["colore_bacca"],
-                parcella["stadio_fenologico_germogli_cm"],
-                parcella["latitudine"],
-                parcella["longitudine"],
-            ))
-            parcella_id = cur.fetchone()[0]
-            totale_parcelle += 1
+        for parcella in config.get("parcelle") or []:
+            try:
+                cur.execute(UPSERT_PARCELLA_QUERY, (
+                    parcella["nome"],
+                    parcella["varieta"],
+                    parcella["colore_bacca"],
+                    parcella["stadio_fenologico_germogli_cm"],
+                    parcella["latitudine"],
+                    parcella["longitudine"],
+                ))
+                parcella_id = cur.fetchone()[0]
+                totale_parcelle += 1
 
-            for nodo in parcella["nodi"]:
-                cur.execute(UPSERT_NODO_QUERY, (nodo["codice"], parcella_id, nodo["tipo"]))
-                totale_nodi += 1
-                codici_correnti.append(nodo["codice"])
+                for nodo in parcella["nodi"]:
+                    cur.execute(UPSERT_NODO_QUERY, (nodo["codice"], parcella_id, nodo["tipo"]))
+                    totale_nodi += 1
+                    codici_correnti.append(nodo["codice"])
+            except KeyError as exc:
+                # A differenza di 'parcelle' mancante o vuota (gestita sopra come
+                # "niente da sincronizzare", coerente con la guardia già presente
+                # più sotto per non disattivare l'anagrafica su una config vuota),
+                # una parcella PRESENTE ma con un campo assente è quasi certamente
+                # un errore di battitura nel YAML: qui si preferisce fermarsi con
+                # un messaggio chiaro piuttosto che proseguire con un dato a metà.
+                # 'with conn' più sopra esegue comunque il rollback della
+                # transazione aperta quando sys.exit() la attraversa.
+                print(
+                    f"config/nodi.yaml: campo {exc} mancante per la parcella "
+                    f"{parcella.get('nome', '<parcella senza nome>')}. Questo "
+                    f"script non applica la stessa validazione semantica di "
+                    f"simulator/main.py (valida_config()) — qui basta che il "
+                    f"campo esista, il suo valore non viene verificato — ma un "
+                    f"campo assente produrrebbe altrimenti un KeyError non "
+                    f"diagnosticabile a metà della sincronizzazione.",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
 
         # Protezione contro uno YAML vuoto o mal formato (nessun nodo letto) 
         # il quale non deve disattivare l'intera anagrafica per un incidente di configurazione.

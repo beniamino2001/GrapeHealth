@@ -3,6 +3,7 @@ package it.pegasopw.grapehealth.api.controller;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import it.pegasopw.grapehealth.api.exception.ParametriNonValidiException;
 import it.pegasopw.grapehealth.api.model.dto.RaccomandazioneDTO;
 import it.pegasopw.grapehealth.api.service.RaccomandazioniService;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -18,6 +19,7 @@ import java.util.List;
 public class RaccomandazioneController {
 
     private final RaccomandazioniService raccomandazioniService;
+    private static final int MAX_ALLERTA_IDS_PER_RICHIESTA = 500;
 
     public RaccomandazioneController(RaccomandazioniService raccomandazioniService) {
         this.raccomandazioniService = raccomandazioniService;
@@ -37,6 +39,11 @@ public class RaccomandazioneController {
             return List.of(raccomandazioniService.perAllerta(allertaId));
         }
         if (allertaIds != null && !allertaIds.isEmpty()) {
+            if (allertaIds.size() > MAX_ALLERTA_IDS_PER_RICHIESTA) {
+                throw new ParametriNonValidiException(
+                        "Il parametro 'allertaIds' accetta al massimo %d id per richiesta (ricevuti: %d)."
+                                .formatted(MAX_ALLERTA_IDS_PER_RICHIESTA, allertaIds.size()));
+            }
             return raccomandazioniService.perAllerteMultiple(allertaIds);
         }
         return raccomandazioniService.perAllerteAttive();

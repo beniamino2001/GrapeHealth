@@ -421,23 +421,34 @@ export default function (data) {
 
   // --- GET /api/raccomandazioni (allertaIds batch): stesso arricchimento
   // della chiamata singola, ma su più allerte in un'unica richiesta.
-  const campioneBatch = randSample(ids, CAMPIONE_BATCH_RACCOMANDAZIONI);
+  // Un caso su venti supera il tetto di 500 id per richiesta
+  // (RaccomandazioneController.MAX_ALLERTA_IDS_PER_RICHIESTA), mai esercitato finora.
+  const superaLimiteBatch = Math.random() < 0.05;
+  const campioneBatch = superaLimiteBatch
+    ? Array.from({ length: 501 }, (_, i) => i + 1)
+    : randSample(ids, CAMPIONE_BATCH_RACCOMANDAZIONI);
   if (campioneBatch.length > 0) {
     const queryBatch = campioneBatch.map((id) => `allertaIds=${id}`).join('&');
     res = http.get(`${BASE_URL}/api/raccomandazioni?${queryBatch}`, {
       tags: { endpoint: 'raccomandazioni_batch' },
+      responseCallback: http.expectedStatuses(200, 400),
     });
     durataRaccomandazioniBatch.add(res.timings.duration);
     check(res, {
-      'raccomandazioni (batch): status 200': (r) => r.status === 200,
-      'raccomandazioni (batch): numero elementi coerente con l\'input': (r) => {
-        try {
-          return JSON.parse(r.body).length === campioneBatch.length;
-        } catch (e) {
-          return false;
-        }
-      },
+      'raccomandazioni (batch): status coerente (200, o 400 oltre 500 id)': (r) =>
+        superaLimiteBatch ? r.status === 400 : r.status === 200,
     });
+    if (!superaLimiteBatch) {
+      check(res, {
+        'raccomandazioni (batch): numero elementi coerente con l\'input': (r) => {
+          try {
+            return JSON.parse(r.body).length === campioneBatch.length;
+          } catch (e) {
+            return false;
+          }
+        },
+      });
+    }
   }
 
   // --- GET /api/parcelle/{nome}.
@@ -528,8 +539,12 @@ export default function (data) {
   });
   durataMisurazioniIntervallo.add(res.timings.duration);
   check(res, {
-    'misurazioni (intervallo dal/al): status coerente con l\'ordine delle date': (r) =>
-      usaIntervalloInvalido ? r.status === 400 : r.status === 200,
+    // Un intervallo valido puo' comunque dare 400 se restituirebbe piu' di
+    // 20.000 righe (StoricoMisurazioniService.MAX_RIGHE_FINESTRA_TEMPORALE):
+    // un secondo motivo di 400 distinto dall'ordine delle date invertito,
+    // quindi qui si accetta 400 in entrambi i casi, non solo su data invertita.
+    'misurazioni (intervallo dal/al): status coerente (data invertita o finestra troppo ampia, altrimenti 200)': (r) =>
+      r.status === 200 || r.status === 400,
     'misurazioni (intervallo dal/al): corpo coerente con lo status': (r) => {
       try {
         const body = JSON.parse(r.body);

@@ -9,10 +9,10 @@ services:
     container_name: grapehealth-rabbitmq
     hostname: grapehealth-rabbitmq
     ports:
-      - "${RABBITMQ_AMQP_PORT}:${RABBITMQ_AMQP_PORT}"       # AMQPS
-      - "${MQTT_PORT}:${MQTT_PORT}"                          # MQTT su TLS
-      - "${RABBITMQ_MANAGEMENT_PORT}:${RABBITMQ_MANAGEMENT_PORT}"
-      - "${RABBITMQ_MANAGEMENT_PORT_TLS}:${RABBITMQ_MANAGEMENT_PORT_TLS}"   # Management UI su TLS
+      - "127.0.0.1:${RABBITMQ_AMQP_PORT}:${RABBITMQ_AMQP_PORT}"       # AMQPS
+      - "127.0.0.1:${MQTT_PORT}:${MQTT_PORT}"                          # MQTT su TLS
+      - "127.0.0.1:${RABBITMQ_MANAGEMENT_PORT}:${RABBITMQ_MANAGEMENT_PORT}"
+      - "127.0.0.1:${RABBITMQ_MANAGEMENT_PORT_TLS}:${RABBITMQ_MANAGEMENT_PORT_TLS}"   # Management UI su TLS
     volumes:
       - ./infra/rabbitmq/rabbitmq.conf.template:/etc/rabbitmq/conf.d/10-grapehealth.conf.template:ro
       - ./infra/rabbitmq/enabled_plugins:/etc/rabbitmq/enabled_plugins:ro
@@ -34,7 +34,7 @@ services:
     pull_policy: build
     container_name: grapehealth-postgres
     ports:
-      - "${PG_PORT}:${PG_PORT}"
+      - "127.0.0.1:${PG_PORT}:${PG_PORT}"
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-grapehealth}
       POSTGRES_USER_FILE: /run/secrets/postgres_user
@@ -73,7 +73,7 @@ services:
       pull: true
     container_name: grapehealth-tomcat
     ports:
-      - "8081-8085:8081-8085"
+      - "127.0.0.1:8081-8084:8081-8084"
     volumes:
       - ${TOMCAT_INSTANCES_DIR}:/opt/grapehealth/instances
       - ./infra/tomcat/istanze-escluse.conf:/opt/grapehealth/istanze-escluse.conf
@@ -96,6 +96,17 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+
+  nginx:
+    build:
+      context: .
+      dockerfile: infra/nginx/Dockerfile
+      pull: true
+    container_name: grapehealth-nginx
+    ports:
+      - "127.0.0.1:443:443"
+    depends_on:
+      - tomcat
 
 secrets:
   postgres_user:

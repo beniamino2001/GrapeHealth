@@ -31,6 +31,19 @@ async function fetchJSON(url) {
   return res.json();
 }
 
+// Applicata solo ai campi di testo libero provenienti dal database (descrizioni,
+// note, fonti bibliografiche) prima di interpolarli in un template innerHTML: oggi
+// questi campi sono popolati solo dal seed SQL o da nodi.yaml, entrambi fidati, ma
+// il rendering non deve dipendere da quella fiducia per restare sicuro. Non va
+// applicata ai campi enum-like (tipo, livelloRischio, stato), gia' vincolati a un
+// insieme chiuso lato database con un CHECK.
+function escapeHtml(s) {
+  if (s == null) return '';
+  return String(s)
+    .replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;').replaceAll("'", '&#39;');
+}
+
 function estraiContenuto(risposta) {
   if (Array.isArray(risposta)) return risposta;
   if (risposta && Array.isArray(risposta.content)) return risposta.content;
@@ -77,6 +90,7 @@ function formattaDurata(ms) {
 // senza importarla esplicitamente; in Node, dove ogni file richiesto ha un
 // proprio scope isolato, questa riga è ciò che rende visibile la stessa cosa.
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { buildQuery, estraiContenuto, formattaDurata };
+  module.exports = { buildQuery, estraiContenuto, formattaDurata, escapeHtml };
   global.formattaDurata = formattaDurata;
+  global.escapeHtml = escapeHtml;
 }

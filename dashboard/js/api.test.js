@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { buildQuery, estraiContenuto, formattaDurata } = require('./api.js');
+const { buildQuery, estraiContenuto, formattaDurata, escapeHtml } = require('./api.js');
 
 // --- buildQuery -------------------------------------------------------------
 
@@ -82,4 +82,20 @@ test('formattaDurata su un\'ora esatta mostra "1h 0m", non piu\' i secondi', () 
 
 test('formattaDurata oltre l\'ora mostra ore e minuti, azzerando i minuti oltre l\'ora corrente', () => {
   assert.equal(formattaDurata((2 * 60 + 5) * 60 * 1000), '2h 5m');
+});
+
+// --- escapeHtml ---------------------------------------------------------------
+
+test('escapeHtml neutralizza i cinque caratteri speciali HTML', () => {
+  assert.strictEqual(escapeHtml(`<script>alert('x')</script> & "cita"`),
+    '&lt;script&gt;alert(&#39;x&#39;)&lt;/script&gt; &amp; &quot;cita&quot;');
+});
+
+test('escapeHtml su null o undefined restituisce una stringa vuota', () => {
+  assert.strictEqual(escapeHtml(null), '');
+  assert.strictEqual(escapeHtml(undefined), '');
+});
+
+test('escapeHtml lascia invariato un testo senza caratteri speciali', () => {
+  assert.strictEqual(escapeHtml('parcellaA'), 'parcellaA');
 });

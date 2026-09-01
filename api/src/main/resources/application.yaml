@@ -24,3 +24,10 @@ logging:
 
 server:
   port: 8084
+  error:
+    include-message: never
+    include-stacktrace: never
+    include-binding-errors: never
+    include-exception: false
+    whitelabel:
+      enabled: false

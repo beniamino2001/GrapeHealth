@@ -7,7 +7,7 @@ set -eu
 # per un certificato pubblicamente attendibile (nessuna CA reale firmerebbe un nome
 # come "postgres" o "rabbitmq", validi solo dentro la rete Docker di questo progetto).
 # Rilanciabile: se i certificati esistono già, non li tocca — stessa idempotenza di
-# setup-credentials.sh, per lo stesso motivo (rigenerarli invaliderebbe le connessioni
+# setup-credenziali.sh, per lo stesso motivo (rigenerarli invaliderebbe le connessioni
 # già stabilite dai client con l'impronta del certificato precedente).
 #
 # Scritto in POSIX sh puro (nessun [[ ]], nessuna sostituzione di processo <(...),
@@ -118,14 +118,14 @@ importa_ca_locale() {
 }
 
 if [ ! -f "$ENV_FILE" ]; then
-  echo "ERRORE: $ENV_FILE non trovato. Esegui prima ./scripts/setup-credentials.sh," >&2
+  echo "ERRORE: $ENV_FILE non trovato. Esegui prima ./scripts/setup-credenziali.sh," >&2
   echo "che genera anche la password del keystore Java letta da questo script." >&2
   exit 1
 fi
 TLS_KEYSTORE_PASSWORD="$(grep '^TLS_KEYSTORE_PASSWORD=' "$ENV_FILE" | cut -d= -f2-)"
 if [ -z "$TLS_KEYSTORE_PASSWORD" ]; then
   echo "ERRORE: TLS_KEYSTORE_PASSWORD non trovata in $ENV_FILE." >&2
-  echo "Rigenera .env con ./scripts/setup-credentials.sh prima di rilanciare questo script." >&2
+  echo "Rigenera .env con ./scripts/setup-credenziali.sh prima di rilanciare questo script." >&2
   exit 1
 fi
 
@@ -188,6 +188,8 @@ echo "Genero il certificato per rabbitmq..."
 genera_certificato_servizio rabbitmq "DNS:rabbitmq,DNS:localhost,IP:127.0.0.1"
 echo "Genero il certificato per tomcat (condiviso dalle cinque istanze, un solo hostname)..."
 genera_certificato_servizio tomcat "DNS:tomcat,DNS:localhost,IP:127.0.0.1"
+echo "Genero il certificato per nginx (reverse proxy)..."
+genera_certificato_servizio nginx "DNS:grapehealth.localhost,DNS:localhost,IP:127.0.0.1"
 
 openssl pkcs12 -export -in "$CERTS_DIR/tomcat.crt" -inkey "$CERTS_DIR/tomcat.key" \
   -out "$CERTS_DIR/tomcat.p12" -name tomcat -passout "pass:${TLS_KEYSTORE_PASSWORD}"

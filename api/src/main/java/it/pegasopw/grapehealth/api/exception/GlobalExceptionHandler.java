@@ -6,6 +6,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 // Traduce le eccezioni del livello applicativo in risposte JSON coerenti, stesso formato
 // ErroreResponse per tutte. In ordine: input che viola un vincolo applicativo (400), risorsa
@@ -42,5 +44,20 @@ public class GlobalExceptionHandler {
                 .formatted(ex.getName(), tipoAtteso, ex.getValue());
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ErroreResponse.of(
                 HttpStatus.BAD_REQUEST.value(), "Parametri non validi", messaggio, request.getRequestURI()));
+    }
+
+
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<ErroreResponse> gestisciPercorsoNonMappato(NoResourceFoundException ex, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ErroreResponse.of(
+                HttpStatus.NOT_FOUND.value(), "Risorsa non trovata",
+                "Nessun endpoint corrisponde al percorso richiesto.", request.getRequestURI()));
+    }
+
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<ErroreResponse> gestisciMetodoNonConsentito(HttpRequestMethodNotSupportedException ex, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED).body(ErroreResponse.of(
+                HttpStatus.METHOD_NOT_ALLOWED.value(), "Metodo non consentito",
+                "Il metodo '%s' non e' supportato su questo percorso.".formatted(ex.getMethod()), request.getRequestURI()));
     }
 }

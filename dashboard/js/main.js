@@ -167,9 +167,9 @@ function renderTabellaNodi(corpoTabella, nodi) {
     .sort((a, b) => a.parcella.localeCompare(b.parcella) || a.codice.localeCompare(b.codice))
     .map(n => `
       <tr>
-        <td>${n.codice}</td>
-        <td>${n.tipoNodo}</td>
-        <td>${n.parcella}</td>
+        <td>${escapeHtml(n.codice)}</td>
+        <td>${escapeHtml(n.tipoNodo)}</td>
+        <td>${escapeHtml(n.parcella)}</td>
         <td><span class="badge ${n.attivo ? 'badge-attivo' : 'badge-inattivo'}">${n.attivo ? 'attivo' : 'inattivo'}</span></td>
         <td>${formattaData(n.dataInstallazione)}</td>
       </tr>

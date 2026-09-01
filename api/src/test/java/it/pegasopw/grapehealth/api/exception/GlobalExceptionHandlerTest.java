@@ -5,6 +5,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -60,5 +62,27 @@ class GlobalExceptionHandlerTest {
 
         assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, risposta.getStatusCode());
         assertFalse(risposta.getBody().messaggio().contains("dettaglio interno sensibile"));
+    }
+
+
+    @Test
+    void percorsoNonMappatoRestituisce404() {
+        NoResourceFoundException ex = mock(NoResourceFoundException.class);
+
+        ResponseEntity<ErroreResponse> risposta = handler.gestisciPercorsoNonMappato(ex, request("/api/percorso-inesistente"));
+
+        assertEquals(HttpStatus.NOT_FOUND, risposta.getStatusCode());
+        assertEquals("Risorsa non trovata", risposta.getBody().errore());
+    }
+
+    @Test
+    void metodoNonSupportatoRestituisce405ConIlMetodoNelMessaggio() {
+        HttpRequestMethodNotSupportedException ex = mock(HttpRequestMethodNotSupportedException.class);
+        when(ex.getMethod()).thenReturn("POST");
+
+        ResponseEntity<ErroreResponse> risposta = handler.gestisciMetodoNonConsentito(ex, request("/api/misurazioni"));
+
+        assertEquals(HttpStatus.METHOD_NOT_ALLOWED, risposta.getStatusCode());
+        assertTrue(risposta.getBody().messaggio().contains("POST"));
     }
 }

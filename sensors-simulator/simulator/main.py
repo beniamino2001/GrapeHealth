@@ -24,8 +24,10 @@ per scartare esplicitamente lo stato precedente e ripartire da zero.
 import argparse
 import json
 import logging
+import math
 import os
 import random
+import re
 import signal
 import time
 from datetime import datetime
@@ -55,6 +57,20 @@ TIPI_NODO_VALIDI = ("meteo", "idrico", "bacca", "suolo")
 
 TOPIC_PREFIX_ATTESO = "grapehealth"
 
+
+# nome parcella e codice nodo finiscono, senza ulteriore escaping, in tre posti
+# che trattano "." e "#" come caratteri di controllo, non come contenuto:
+# il topic MQTT (f"{prefix}/{nome}/{codice}/{parametro}"), la routing key AMQP
+# in cui RabbitMQ lo traduce (dove "." separa i segmenti e "#"/"*" sono
+# wildcard), e ogni riga di log che li interpola in un messaggio (dove un "\n"
+# incorporato falsificherebbe righe di log aggiuntive). Lo stesso pattern è
+# stato aggiunto lato Java su MisurazioneMessage.nodo/parcella
+# (@Pattern(regexp = "^[A-Za-z0-9_-]+$"), decisionengine) proprio perché un
+# valore non conforme altera la routing key "allerta.<tipo>.<parcella>.<nodo>"
+# pubblicata da AllertaPublisher — ma quel controllo scatta solo dopo che il
+# dato è già stato pubblicato e ha già attraversato MQTT/AMQP; qui lo stesso
+# controllo blocca l'avvio prima che un valore del genere venga mai pubblicato.
+NOME_NODO_PARCELLA_PATTERN = re.compile(r"^[A-Za-z0-9_-]+$")
 
 def avviso_time_scale(time_scale: float) -> str | None:
     """Messaggio da loggare quando time_scale diverge da 1, None altrimenti.
@@ -118,6 +134,21 @@ def carica_config() -> dict:
     with open(CONFIG_PATH, encoding="utf-8") as f:
         return yaml.safe_load(f)
 
+def valida_sezioni_config(config: dict) -> None:
+    """Verifica che config abbia le due sezioni di primo livello che main()
+    indicizza direttamente un istante dopo aver chiamato questa funzione
+    (config["simulazione"][...], config["mqtt"][...]), prima ancora che
+    valida_config() possa intervenire: le serve scenario/time_scale già
+    risolti come argomenti, quindi non può girare più in alto di questa
+    funzione. Senza questo controllo, una sezione mancante nel YAML produce
+    un KeyError grezzo, bypassando ogni messaggio esplicito che il resto di
+    questo file garantisce per ogni altro campo."""
+    for sezione in ("simulazione", "mqtt"):
+        if not isinstance(config.get(sezione), dict):
+            raise ValueError(
+                f"config/nodi.yaml privo della sezione '{sezione}' (trovato: "
+                f"{config.get(sezione)!r})."
+            )
 
 def valida_config(config: dict, scenario_effettivo: str, time_scale_effettivo: float) -> None:
     """Verifica all'avvio i valori che il resto del codice si limita a
@@ -150,12 +181,35 @@ def valida_config(config: dict, scenario_effettivo: str, time_scale_effettivo: f
             f"{', '.join(SCENARI_VALIDI)}."
         )
 
-    if time_scale_effettivo <= 0:
+    # isinstance() prima di math.isfinite(): quest'ultima solleva TypeError
+    # (non un errore che questa funzione può intercettare e ripresentare come
+    # ValueError leggibile) se time_scale_effettivo non è affatto un numero —
+    # possibile da quando l'estrazione in main() è diventata un .get() che
+    # restituisce None invece di sollevare KeyError su un campo assente.
+    if (not isinstance(time_scale_effettivo, (int, float))
+            or not math.isfinite(time_scale_effettivo) or time_scale_effettivo <= 0):
         raise ValueError(
-            f"simulazione.time_scale non valido: {time_scale_effettivo}. Deve "
-            f"essere un numero positivo: zero causerebbe una divisione per "
-            f"zero nel calcolo dell'intervallo reale fra letture, un valore "
-            f"negativo farebbe scorrere il tempo simulato all'indietro."
+            f"simulazione.time_scale non valido: {time_scale_effettivo!r}. Deve "
+            f"essere un numero positivo e finito: zero causerebbe una divisione "
+            f"per zero nel calcolo dell'intervallo reale fra letture, un valore "
+            f"negativo farebbe scorrere il tempo simulato all'indietro, e "
+            f"'nan'/'inf' (accettati da --time-scale in quanto float validi per "
+            f"argparse, ma privi di senso fisico qui) mandano in crash "
+            f"SimulatedClock.now() con un ValueError/OverflowError di basso "
+            f"livello invece di questo messaggio esplicito."
+        )
+
+    intervallo_pubblicazione = config.get("simulazione", {}).get("intervallo_pubblicazione_secondi")
+    if (not isinstance(intervallo_pubblicazione, (int, float))
+            or not math.isfinite(intervallo_pubblicazione) or intervallo_pubblicazione <= 0):
+        raise ValueError(
+            f"simulazione.intervallo_pubblicazione_secondi non valido: "
+            f"{intervallo_pubblicazione!r}. Deve essere un numero positivo e "
+            f"finito, per lo stesso motivo di time_scale qui sopra: main() lo "
+            f"divide per time_scale per calcolare l'attesa reale fra due tick "
+            f"(sleep_reale = intervallo/time_scale) — mai validato finché "
+            f"l'estrazione in main() sollevava comunque un KeyError su un "
+            f"campo assente, prima che arrivasse fin qui."
         )
 
     topic_prefix = config.get("mqtt", {}).get("topic_prefix")
@@ -172,14 +226,54 @@ def valida_config(config: dict, scenario_effettivo: str, time_scale_effettivo: f
             f"cambiarlo, va aggiornato in tutti e tre i punti insieme."
         )
 
-    for parcella in config["parcelle"]:
+    parcelle = config.get("parcelle")
+    if not parcelle:
+        raise ValueError(
+            f"config/nodi.yaml privo di una sezione 'parcelle' non vuota "
+            f"(trovato: {parcelle!r}). Senza questa sezione il simulatore "
+            f"non avrebbe alcun nodo per cui generare letture: un dizionario "
+            f"vuoto o una chiave mancante producono qui lo stesso errore "
+            f"esplicito, invece di un KeyError grezzo più sotto nel ciclo "
+            f"che itera su config['parcelle']."
+        )
+
+    for parcella in parcelle:
+        nome_parcella = parcella.get("nome")
+        if not nome_parcella or not NOME_NODO_PARCELLA_PATTERN.match(nome_parcella):
+            raise ValueError(
+                f"Nome parcella non valido: '{nome_parcella}'. Ammessi solo "
+                f"lettere, cifre, '_' e '-': finisce nel topic MQTT, nella "
+                f"routing key AMQP che ne deriva, e in ogni riga di log che lo "
+                f"cita, dove '.', '#', '*' o un ritorno a capo hanno un "
+                f"significato strutturale, non testuale."
+            )
         colore = parcella.get("colore_bacca")
         if colore not in COLORI_BACCA_VALIDI:
             raise ValueError(
                 f"colore_bacca non valido per {parcella.get('nome', '<parcella senza nome>')}: "
                 f"'{colore}'. Valori ammessi: {', '.join(COLORI_BACCA_VALIDI)}."
             )
-        for nodo in parcella.get("nodi", []):
+        nodi = parcella.get("nodi")
+        if not nodi:
+            raise ValueError(
+                f"Parcella '{nome_parcella}' priva di una sezione 'nodi' non "
+                f"vuota (trovato: {nodi!r}). Questo controllo esisteva prima "
+                f"solo come .get('nodi', []) — accettava silenziosamente una "
+                f"parcella senza nodi, ma il ciclo di pubblicazione più sotto "
+                f"in questo stesso file usa parcella['nodi'] senza .get(): una "
+                f"config che valida_config() avrebbe accettato avrebbe "
+                f"comunque fatto crashare il programma al primo tick con un "
+                f"KeyError, vanificando lo scopo stesso di validare prima di "
+                f"qualunque effetto collaterale."
+            )
+        for nodo in nodi:
+            codice_nodo = nodo.get("codice")
+            if not codice_nodo or not NOME_NODO_PARCELLA_PATTERN.match(codice_nodo):
+                raise ValueError(
+                    f"Codice nodo non valido (parcella {nome_parcella}): "
+                    f"'{codice_nodo}'. Ammessi solo lettere, cifre, '_' e '-', "
+                    f"per lo stesso motivo del nome parcella qui sopra."
+                )
             tipo = nodo.get("tipo")
             if tipo not in TIPI_NODO_VALIDI:
                 raise ValueError(
@@ -245,14 +339,22 @@ def parse_args():
 
 def main():
     signal.signal(signal.SIGTERM, gestisci_sigterm)
-    load_dotenv(override=True)  # override=True per permettere a docker-compose di sovrascrivere .env locale
+    load_dotenv(override=True)  # protegge dal caso in cui una variabile stantia già esportata nella
+    # shell (es. da una sessione precedente) prevalga su un .env appena rigenerato — rilevante solo
+    # nell'esecuzione da host: dentro il container Tomcat, .env non esiste come file (v. sopra)
     args = parse_args()
     config = carica_config()
 
-    scenario = valore_effettivo(args.scenario, config["simulazione"]["scenario"])
-    time_scale = valore_effettivo(args.time_scale, config["simulazione"]["time_scale"])
-    intervallo_sim = config["simulazione"]["intervallo_pubblicazione_secondi"]
-    prefix = config["mqtt"]["topic_prefix"]
+    # Verificato prima di qualunque estrazione: le quattro righe subito sotto
+    # leggono config["simulazione"][...] e config["mqtt"][...] con
+    # indicizzazione diretta, un istante prima che valida_config() abbia
+    # anche solo la possibilità di intervenire.
+    valida_sezioni_config(config)
+
+    scenario = valore_effettivo(args.scenario, config["simulazione"].get("scenario"))
+    time_scale = valore_effettivo(args.time_scale, config["simulazione"].get("time_scale"))
+    intervallo_sim = config["simulazione"].get("intervallo_pubblicazione_secondi")
+    prefix = config["mqtt"].get("topic_prefix")
 
     # Fallisce subito e rumorosamente su un valore non riconosciuto, invece
     # di lasciare che un typo (o uno zero) produca dati silenziosamente

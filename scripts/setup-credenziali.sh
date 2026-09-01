@@ -2,8 +2,8 @@
 # Genera credenziali locali per GrapeHealth (PostgreSQL + RabbitMQ), una sola volta, senza mai scriverle in chiaro.
 #
 # Uso:
-#   chmod +x scripts/setup-credentials.sh (solo la prima volta)
-#   ./scripts/setup-credentials.sh
+#   chmod +x scripts/setup-credenziali.sh (solo la prima volta)
+#   ./scripts/setup-credenziali.sh
 #
 # Cosa fa:
 #   1. genera tre password casuali forti (openssl rand): PostgreSQL, RabbitMQ e il keystore
@@ -59,7 +59,7 @@ if [ -n "$ARTEFATTI_ESISTENTI" ]; then
   echo "  rm -rf certs             # essenziale anche questo: i certificati esistenti userebbero"
   echo "                           # ancora la vecchia TLS_KEYSTORE_PASSWORD, disallineata da"
   echo "                           # quella appena rigenerata (stesso motivo della riga sopra)"
-  echo "  sh scripts/setup-credentials.sh"
+  echo "  sh scripts/setup-credenziali.sh"
   echo "  sh scripts/genera-certificati-tls.sh   # rigenera i certificati con la nuova password"
   exit 0
 fi
@@ -101,11 +101,17 @@ read -rp "Percorso assoluto alla cartella dei log Spring Boot: " LOGS_DIR
 for coppia in "istanze Tomcat:$TOMCAT_DIR" "log Spring Boot:$LOGS_DIR"; do
   etichetta="${coppia%%:*}"
   valore="${coppia#*:}"
+
   case "$valore" in
     /*) ;;
     *) echo "ERRORE: il percorso per $etichetta deve essere assoluto (iniziare con /)." >&2; exit 1 ;;
   esac
-  [ -d "$valore" ] || { echo "ERRORE: la cartella '$valore' ($etichetta) non esiste." >&2; exit 1; }
+
+  if [ ! -d "$valore" ]; then
+    echo "La cartella '$valore' ($etichetta) non esiste: la creo..."
+    mkdir -p "$valore" \
+      || { echo "ERRORE: impossibile creare la cartella '$valore' ($etichetta)." >&2; exit 1; }
+  fi
 done
 
 random_secret() {
@@ -142,7 +148,7 @@ RMQ_HASH_GREZZO=$(docker run --rm "$RABBITMQ_IMAGE" rabbitmqctl hash_password "$
 RMQ_HASH=$(printf '%s' "$RMQ_HASH_GREZZO" | tail -n1 | tr -d '\r')
 
 cp "$RABBITMQ_DEFINITIONS_TEMPLATE" "$RABBITMQ_DEFINITIONS"
-sed -i.bak "s|GENERATO_DA_setup-credentials.sh_NON_MODIFICARE_A_MANO|${RMQ_HASH}|" "$RABBITMQ_DEFINITIONS"
+sed -i.bak "s|GENERATO_DA_setup-credenziali.sh_NON_MODIFICARE_A_MANO|${RMQ_HASH}|" "$RABBITMQ_DEFINITIONS"
 rm -f "${RABBITMQ_DEFINITIONS}.bak"
 chmod 600 "$RABBITMQ_DEFINITIONS"
 
@@ -188,7 +194,7 @@ done
 [ "$(cat "$SECRETS_DIR/postgres_password.txt")" = "$PG_PASS" ] \
   || verifica_fallita "$SECRETS_DIR/postgres_password.txt non contiene la password appena generata"
 
-grep -q "GENERATO_DA_setup-credentials.sh_NON_MODIFICARE_A_MANO" "$RABBITMQ_DEFINITIONS" \
+grep -q "GENERATO_DA_setup-credenziali.sh_NON_MODIFICARE_A_MANO" "$RABBITMQ_DEFINITIONS" \
   && verifica_fallita "$RABBITMQ_DEFINITIONS contiene ancora il placeholder dell'hash: la sostituzione non ha funzionato"
 if command -v python3 > /dev/null 2>&1; then
   python3 -c "import json,sys; json.load(open(sys.argv[1]))" "$RABBITMQ_DEFINITIONS" > /dev/null 2>&1 \

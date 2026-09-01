@@ -36,4 +36,28 @@ class AllertaDeadLetterTest {
                 "un tipo di allerta non riconosciuto avrebbe dovuto raggiungere " + RabbitConfig.INPUT_DLQ
                         + " dopo l'esaurimento dei tentativi");
     }
+
+    // AllertaEvent non ha vincoli di validazione sui propri campi (nessun
+    // @NotNull): un tipo nullo propaga una NullPointerException dallo switch
+    // di SimulatoreAttuazione, gestita dallo stesso meccanismo generico di
+    // retry/dead-letter già verificato sopra per IllegalArgumentException,
+    // non da un controllo scritto apposta per questo caso.
+    @Test
+    void unTipoNulloFinisceNellaCodaDiDeadLetter() {
+        String corpo = "{\"tipo\":null,\"livelloRischio\":\"moderato\",\"nodo\":\"idrico-A1\","
+                + "\"parcella\":\"parcellaA\",\"parametro\":\"psi_stem\",\"valoreOsservato\":-1.3,"
+                + "\"messaggio\":\"messaggio di test dead-letter\",\"timestamp\":\"2026-01-01T00:00:00Z\"}";
+
+        MessageProperties proprieta = new MessageProperties();
+        proprieta.setContentType("application/json");
+        Message messaggio = new Message(corpo.getBytes(StandardCharsets.UTF_8), proprieta);
+
+        rabbitTemplate.send("", RabbitConfig.INPUT_QUEUE, messaggio);
+
+        Message inDeadLetter = rabbitTemplate.receive(RabbitConfig.INPUT_DLQ, 8000);
+
+        assertNotNull(inDeadLetter,
+                "un tipo nullo avrebbe dovuto raggiungere " + RabbitConfig.INPUT_DLQ
+                        + " dopo l'esaurimento dei tentativi");
+    }
 }

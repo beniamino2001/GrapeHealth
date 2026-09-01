@@ -105,7 +105,7 @@ async function caricaAllerteRisolte(page) {
     renderPaginazione();
   } catch (err) {
     console.error('Errore nel recupero delle allerte risolte', err);
-    container.innerHTML = `<p class="error-text">Impossibile caricare lo storico: ${err.message}</p>`;
+    container.innerHTML = `<p class="error-text">Impossibile caricare lo storico: ${escapeHtml(err.message)}</p>`;
   }
 }
 
@@ -156,7 +156,7 @@ function renderAlertList(allerte, filtroTipoAttivo = null) {
         <span>${a.livelloRischio || ''}</span>
       </div>
       <div class="alert-body">
-        <span>${a.parcella} · ${a.nodoCodice}</span>
+        <span>${escapeHtml(a.parcella)} · ${escapeHtml(a.nodoCodice)}</span>
         <span>${a.generataIl ? new Date(a.generataIl).toLocaleString('it-IT') : ''}</span>
       </div>
       ${risolta && a.risoltaIl ? `
@@ -196,7 +196,7 @@ async function mostraRaccomandazione(allerta) {
     renderRaccomandazione(lista[0], allerta);
   } catch (err) {
     console.error('Errore nel recupero della raccomandazione', err);
-    panel.innerHTML = `<p class="error-text">Impossibile caricare la raccomandazione: ${err.message}</p>`;
+    panel.innerHTML = `<p class="error-text">Impossibile caricare la raccomandazione: ${escapeHtml(err.message)}</p>`;
   }
 }
 
@@ -219,7 +219,7 @@ function renderRaccomandazione(r, allerta) {
   const dettaglioAllerta = allerta ? `
     <p class="dettaglio-allerta">
       <strong>Regola scatenante:</strong> ${allerta.regolaScatenante || '—'}<br>
-      <strong>Descrizione dell'evento:</strong> ${allerta.descrizione || '—'}
+      <strong>Descrizione dell'evento:</strong> ${escapeHtml(allerta.descrizione) || '—'}
     </p>
     ${allerta.stato === 'risolta' && allerta.risoltaIl ? `
       <p><strong>Risolta il:</strong> ${new Date(allerta.risoltaIl).toLocaleString('it-IT')}
@@ -234,8 +234,8 @@ function renderRaccomandazione(r, allerta) {
 
   const fonteRegola = (r.descrizioneRegola || r.fonteBibliograficaRegola) ? `
     <p class="dettaglio-regola">
-      ${r.descrizioneRegola ? `<strong>Descrizione della regola:</strong> ${r.descrizioneRegola}<br>` : ''}
-      ${r.fonteBibliograficaRegola ? `<strong>Fonte bibliografica:</strong> ${r.fonteBibliograficaRegola}` : ''}
+      ${r.descrizioneRegola ? `<strong>Descrizione della regola:</strong> ${escapeHtml(r.descrizioneRegola)}<br>` : ''}
+      ${r.fonteBibliograficaRegola ? `<strong>Fonte bibliografica:</strong> ${escapeHtml(r.fonteBibliograficaRegola)}` : ''}
     </p>
   ` : '';
 
@@ -255,7 +255,7 @@ function renderRaccomandazione(r, allerta) {
               <td>${s.livelloRischio || '—'}</td>
               <td>${formattaOperatore(s.operatore)} ${s.valoreSoglia.toLocaleString('it-IT')} ${s.unitaMisura || ''}</td>
               <td>${s.durataMinimaMinuti ? `${s.durataMinimaMinuti} min` : '—'}</td>
-              <td>${s.note || '—'}</td>
+              <td>${escapeHtml(s.note) || '—'}</td>
             </tr>
           `).join('')}
         </tbody>
@@ -298,12 +298,12 @@ function renderRaccomandazione(r, allerta) {
       <h4>Strategie alternative documentate in letteratura</h4>
       <p class="hint">L'azione consigliata è sempre la prima in alto in quanto la bibliografia non indica un criterio per scegliere automaticamente tra le alternative presenti.</p>
       ${alternative.map(alt => `
-        <div class="azione-alternativa${alt.codice === r.azioneConsigliata ? ' azione-corrente' : ''}">
-          <strong>${alt.descrizione}</strong>
-          ${alt.codice === r.azioneConsigliata ? '<span class="badge badge-corrente">azione applicata</span>' : ''}
-          ${alt.nota ? `<p class="azione-nota">${alt.nota}</p>` : ''}
-          ${alt.fonteBibliografica ? `<p class="azione-fonte">Fonte: ${alt.fonteBibliografica}</p>` : ''}
-        </div>
+      <div class="azione-alternativa${alt.codice === r.azioneConsigliata ? ' azione-corrente' : ''}">
+        <strong>${escapeHtml(alt.descrizione)}</strong>
+        ${alt.codice === r.azioneConsigliata ? '<span class="badge badge-corrente">azione applicata</span>' : ''}
+        ${alt.nota ? `<p class="azione-nota">${escapeHtml(alt.nota)}</p>` : ''}
+        ${alt.fonteBibliografica ? `<p class="azione-fonte">Fonte: ${escapeHtml(alt.fonteBibliografica)}</p>` : ''}
+      </div>
       `).join('')}
     </div>
   ` : '';
@@ -315,11 +315,11 @@ function renderRaccomandazione(r, allerta) {
     ${fonteRegola}
     ${sezioneSoglie}
     ${infoGermoglio}
-    <p><strong>Azione consigliata:</strong> ${r.azioneConsigliata || '—'}</p>
-    <p>${r.testoRaccomandazione || ''}</p>
+    <p><strong>Azione consigliata:</strong> ${escapeHtml(r.azioneConsigliata) || '—'}</p>
+    <p>${escapeHtml(r.testoRaccomandazione)}</p>
     ${r.basedOnSimulatedExecution ? `
-      <p><strong>Azione eseguita (simulata):</strong> ${r.azioneEseguita || '—'}</p>
-      <p><strong>Esito:</strong> ${r.esitoSimulato || '—'}</p>
+      <p><strong>Azione eseguita (simulata):</strong> ${escapeHtml(r.azioneEseguita) || '—'}</p>
+      <p><strong>Esito:</strong> ${escapeHtml(r.esitoSimulato) || '—'}</p>
       <p><strong>Eseguita il:</strong> ${r.eseguitaIl ? new Date(r.eseguitaIl).toLocaleString('it-IT') : '—'}</p>
     ` : ''}
     ${sezioneAlternative}

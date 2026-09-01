@@ -28,6 +28,7 @@ public class StoricoMisurazioniService {
     private final NodoResolver nodoResolver;
     private final CacheNodi cacheNodi;
     private final CacheParcelle cacheParcelle;
+    private static final int MAX_RIGHE_FINESTRA_TEMPORALE = 20_000;
 
     public StoricoMisurazioniService(MisurazioneRepository misurazioneRepository, NodoResolver nodoResolver,
                                      CacheNodi cacheNodi, CacheParcelle cacheParcelle) {
@@ -59,6 +60,12 @@ public class StoricoMisurazioniService {
         // segnalarlo. Per questo caso si interroga senza Pageable, ordinando cronologicamente: la
         // finestra è completa per costruzione, non solo nella pratica.
         if (dal != null && al != null) {
+            long conteggio = misurazioneRepository.count(filtro);
+            if (conteggio > MAX_RIGHE_FINESTRA_TEMPORALE) {
+                throw new ParametriNonValidiException(
+                        "L'intervallo richiesto restituirebbe %d righe, oltre il limite di %d: restringi 'dal'/'al'."
+                                .formatted(conteggio, MAX_RIGHE_FINESTRA_TEMPORALE));
+            }
             List<MisurazioneDTO> tutte = misurazioneRepository.findAll(filtro, Sort.by(Sort.Direction.ASC, "rilevatoIl"))
                     .stream()
                     .map(entita -> MisurazioneMapper.toDTO(entita, cacheNodi, cacheParcelle))

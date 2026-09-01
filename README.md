@@ -4,22 +4,33 @@ Realizzazione di un middleware di messaggistica asincrona per la viticoltura di 
 
 ## Requisiti
 
+- Questo repository clonato con `git clone` (non scaricato come ZIP): `scripts/setup-credenziali.sh`
+  usa `git rev-parse --show-toplevel` per individuare la propria posizione in modo indipendente
+  dalla cartella da cui viene lanciato, e senza una vera repository Git fallisce subito con un
+  errore esplicito piuttosto che indovinare un percorso sbagliato.
 - Docker e Docker Compose
 - Python 3.x con `paho-mqtt`, `PyYAML`, `python-dotenv`, `psycopg2-binary`, `pytest`
 - OpenSSL e una JDK con `keytool`
 
 ## Avvio dell'intero stack applicativo da CLI in locale
 
+Un solo comando (dopo il primo `chmod`) dentro la root della cartella GrapeHealth, che incatena i passi sotto nell'ordine
+in cui devono avvenire:
 ```bash
-chmod +x scripts/*   # solo la prima volta
-sh scripts/setup-credentials.sh          # genera credenziali locali casuali e chiede due percorsi utili al Tomcat
+chmod +x infra/tomcat/*.sh scripts/*.sh   # solo la prima volta
+sh scripts/avvia-tutto.sh
+```
+Oppure, un passo alla volta:
+```bash
+chmod +x infra/tomcat/*.sh scripts/*.sh   # solo la prima volta
+sh scripts/setup-credenziali.sh          # genera credenziali locali casuali e chiede due percorsi utili al Tomcat
 sh scripts/genera-certificati-tls.sh    # genera una CA locale e i certificati TLS per i servizi infrastrutturali
 docker compose up -d --build
 ```
 
 N.B.: l'ordine di esecuzione conta poichè `genera-certificati-tls.sh` legge la password del keystore Java da `.env`, generata dal primo script — invertirli produce un errore esplicito.
 
-`setup-credentials.sh` genera password casuali forti e chiede due percorsi assoluti su 
+`setup-credenziali.sh` genera password casuali forti e chiede due percorsi assoluti su 
 dove vivono le cinque istanze Tomcat locali e su dove scrivere i log applicativi delle app
 Spring Boot (es. Downloads), verificandone l'esistenza prima di procedere e poi
 scrive tutto in quattro file distinti:
@@ -53,13 +64,30 @@ con Apache Tomcat 11/Eclipse Temurin JDK 21 usato come CATALINA_HOME per le cinq
 Le cartelle reali delle cinque istanze Tomcat (`CATALINA_BASE`) e dei log applicativi delle app
 Spring Boot **vivono al di fuori di questo repository**: sono percorsi appartenenti all'ambiente locale
 indicati dalle variabili `TOMCAT_INSTANCES_DIR` e `SPRING_BOOT_LOGS_DIR` in `.env` e montati nel
-container come bind mount.
+container come bind mount. Chi clona il repository non deve prepararle a mano. A ogni container
+ricreato da zero (dopo un `docker compose down`, con o senza `-v`: mai dopo un semplice `stop`/
+`restart`, che riusa lo stesso container) i quattro moduli Spring Boot vengono ricompilati da
+zero (`mvn package`, codice sorgente incluso nell'immagine, non solo il WAR già pronto) e tutte
+e cinque le istanze rigenerate in `TOMCAT_INSTANCES_DIR` con il risultato — struttura di cartelle,
+`server.xml` con la porta giusta, il WAR appena compilato per le quattro istanze Spring Boot o,
+per `dashboard`, i soli file statici (`package.json` e `*.test.js` esclusi, servono solo alla
+suite di test locale, mai all'istanza servita) — anche se in quella cartella c'era già qualcosa
+da un avvio precedente. Un semplice riavvio dello stesso container, invece, non ricompila né
+rigenera nulla: usa quello che c'è già, avvio rapido invece che un nuovo giro di build Maven.
 
-- `infra/tomcat/Dockerfile` — costruisce l'immagine a partire dall'immagine con il tag `tomcat:11-jdk21-temurin-jammy`, con un Python minimale aggiunto solo per eseguire `sensors-simulator/scripts/init_nodi_db.py` prima di avviare le cinque istanze.
-- `infra/tomcat/start-instances.sh` — l'entrypoint: avvia le cinque istanze in parallelo dalla
-  `CATALINA_HOME` condivisa, ciascuna con la propria `CATALINA_BASE`. Alla prima esecuzione dopo
-  un `docker compose down -v` (mai dopo un semplice `stop`) pulisce tutti i log delle istanze
-  Tomcat e delle app Spring Boot prima di far ripartire lo stack, e sincronizza `nodo_sensore`
+- `infra/tomcat/Dockerfile` — parte da `tomcat:11-jdk21-temurin-jammy` con un Python minimale
+  aggiunto solo per eseguire `sensors-simulator/scripts/init_nodi_db.py`, un'installazione Maven
+  prelevata (non eseguita) dall'immagine ufficiale `maven:3.9-eclipse-temurin-21`, il codice
+  sorgente dei quattro moduli Spring Boot, i file della dashboard e i due template
+  (`infra/tomcat/server.xml.template`, `infra/tomcat/setenv.sh.template`) pronti per il
+  provisioning delle istanze. La compilazione vera e propria avviene a runtime, non qui — vedi sotto.
+- `infra/tomcat/start-instances.sh` — l'entrypoint: crea (o rigenera) e avvia le cinque istanze in
+  parallelo dalla `CATALINA_HOME` condivisa, ciascuna con la propria `CATALINA_BASE`. Alla prima
+  esecuzione dopo un `docker compose down` (con o senza `-v`, mai dopo un semplice `stop`) pulisce
+  i log delle app Spring Boot, ricompila i quattro moduli con `mvn package` e rigenera tutte e
+  cinque le istanze in `TOMCAT_INSTANCES_DIR` da zero — anche se contenevano già qualcosa da un
+  avvio precedente, dato che è un bind mount e sopravvive a `-v` per conto proprio. Un riavvio
+  dello stesso container, invece, non ricompila né rigenera nulla. Sincronizza inoltre `nodo_sensore`
   con `sensors-simulator/config/nodi.yaml` eseguendo `init_nodi_db.py`, step necessario perché
   `persistence`/`api` caricano la mappa dei nodi noti una sola volta, al proprio avvio, e non la
   ricaricano da sole. Prima di avviare ciascuna istanza, rigenera anche `server.xml` da
@@ -103,7 +131,7 @@ anni, pensata solo per questo ambiente di sviluppo) e un certificato per ciascun
 |---|---|---|
 | RabbitMQ MQTT (TLS) | 8883 | Endpoint per la pubblicazione dei sensori IoT |
 | RabbitMQ AMQP (TLS) | 5671 | Endpoint per i consumer applicativi |
-| RabbitMQ Management UI | 15672 / 15671 (TLS) | Console web per management (credenziali generate da `setup-credentials.sh`); entrambe le porte restano attive, a differenza di AMQP/MQTT |
+| RabbitMQ Management UI | 15672 / 15671 (TLS) | Console web per management (credenziali generate da `setup-credenziali.sh`); entrambe le porte restano attive, a differenza di AMQP/MQTT |
 | PostgreSQL (TLS obbligatorio) | 5432 | Persistenza delle misurazioni, allerte e trattamenti |
 
 Lo schema sul database viene creato automaticamente al primo avvio da `infra/postgres/init/01_schema.sql`.
@@ -116,7 +144,7 @@ GrapeHealth/
 ├── .env.example
 ├── .gitignore
 ├── scripts/
-│   ├── setup-credentials.sh        # generazione credenziali locali + password keystore TLS
+│   ├── setup-credenziali.sh        # generazione credenziali locali + password keystore TLS
 │   └── genera-certificati-tls.sh   # CA locale e certificati per postgres/rabbitmq/tomcat
 ├── secrets/
 │   ├── postgres_user.txt.example
@@ -137,5 +165,5 @@ GrapeHealth/
 │   └── postman/        # test funzionale degli endpoint REST API (Postman/Newman)
 ```
 
-N.B.: `certs/`, `secrets/` e `.env` (artefatti prodotti da `setup-credentials.sh` e `genera-certificati-tls.sh`) 
+N.B.: `certs/`, `secrets/`, `infra/rabbitmq/definitions.json` e `.env` (artefatti prodotti da `setup-credenziali.sh` e `genera-certificati-tls.sh`) 
 non sono tracciati da Git, in quanto vanno rigenerato su ogni macchina locale e non copiati da un'altra.

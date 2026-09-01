@@ -61,7 +61,7 @@ class GrapeHealthMqttClient:
             password = os.environ["RABBITMQ_PASS"]
         except KeyError as exc:
             raise RuntimeError(
-                f"Variabile d'ambiente {exc} mancante: esegui ./scripts/setup-credentials.sh "
+                f"Variabile d'ambiente {exc} mancante: esegui ./scripts/setup-credenziali.sh "
                 "dalla root del repository e ricarica l'ambiente (.env) prima di rilanciare."
             ) from exc
 

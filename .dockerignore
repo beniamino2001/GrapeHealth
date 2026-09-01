@@ -1,0 +1,31 @@
+# A differenza di .gitignore, un pattern qui senza "**/" davanti esclude SOLO alla radice
+# del contesto di build, mai a una profondità qualunque — verificato empiricamente con un
+# demone Docker reale, non per lettura della documentazione. Le voci sotto sono divise di
+# conseguenza: quelle con "**/" sono pensate per colpire ovunque nell'albero, quelle senza
+# sono deliberatamente specifiche a un unico percorso alla radice.
+
+.git/
+**/.env
+**/.env [0-9]*
+secrets/*.txt
+secrets/* [0-9].txt
+infra/rabbitmq/definitions.json
+infra/rabbitmq/definitions [0-9]*.json
+**/target/
+**/*.class
+**/*.jar
+**/*.war
+**/.idea/
+**/*.iml
+**/__pycache__/
+**/*.pyc
+**/.pytest_cache/
+**/.venv/
+**/venv/
+**/node_modules/
+**/dist/
+**/.DS_Store
+**/*.log
+**/.vscode/
+.github/
+sensors-simulator/.state/
