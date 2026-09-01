@@ -1,169 +1,154 @@
 # GrapeHealth
 
-Realizzazione di un middleware di messaggistica asincrona per la viticoltura di precisione: gestione dei trattamenti fitosanitari e monitoraggio dello stress idrico/termico della vite tramite rete di sensori IoT simulati.
+GrapeHealth è un middleware per la viticoltura di precisione: raccoglie le letture di una rete di sensori IoT installati in vigneto (temperatura, umidità del suolo, bagnatura fogliare, temperatura della bacca), le confronta con soglie tratte dalla letteratura scientifica su malattie della vite e stress climatico, e quando le condizioni lo richiedono genera un'allerta con una raccomandazione — per esempio un'irrigazione di soccorso in caso di stress idrico, o un trattamento fitosanitario in caso di rischio di peronospora. Il tutto è visibile in una dashboard web.
 
-## Requisiti
+In questo repository i sensori sono simulati (non c'è un vigneto reale collegato), ma tutto il resto — la messaggistica, le regole, il salvataggio dei dati, l'interfaccia — funziona esattamente come farebbe con sensori veri.
 
-- Questo repository clonato con `git clone` (non scaricato come ZIP): `scripts/setup-credenziali.sh`
-  usa `git rev-parse --show-toplevel` per individuare la propria posizione in modo indipendente
-  dalla cartella da cui viene lanciato, e senza una vera repository Git fallisce subito con un
-  errore esplicito piuttosto che indovinare un percorso sbagliato.
-- Docker e Docker Compose
-- Python 3.x con `paho-mqtt`, `PyYAML`, `python-dotenv`, `psycopg2-binary`, `pytest`
-- OpenSSL e una JDK con `keytool`
+## Come avviarlo
 
-## Avvio dell'intero stack applicativo da CLI in locale
+Serve avere installati Docker, Python 3 e una JDK (per i dettagli precisi vedi più sotto). Il progetto va scaricato clonandolo con `git clone`, non con lo ZIP di GitHub.
 
-Un solo comando (dopo il primo `chmod`) dentro la root della cartella GrapeHealth, che incatena i passi sotto nell'ordine
-in cui devono avvenire:
+Da un terminale, nella cartella del progetto:
 ```bash
 chmod +x infra/tomcat/*.sh scripts/*.sh   # solo la prima volta
 sh scripts/avvia-tutto.sh
 ```
-Oppure, un passo alla volta:
+> **Nota:** Docker deve essere installato e avviato prima di eseguire `scripts/avvia-tutto.sh`. Su Linux, l'utente che esegue il progetto deve inoltre poter utilizzare Docker senza `sudo` oppure i comandi Docker devono essere eseguiti con i privilegi appropriati.
+
+Il primo avvio richiede qualche minuto: genera le credenziali locali (chiedendo due percorsi sul tuo computer locale), i certificati per le connessioni cifrate, poi compila e avvia tutti i servizi. Alla fine, lo script conferma quando tutto è davvero pronto — se qualcosa non funziona, si ferma da solo e lo dice, senza lasciare l'infrastruttura a metà.
+
+## Come si usa
+
+Una volta avviato, apri **`https://grapehealth.localhost`** nel browser: è la dashboard, con lo stato del vigneto simulato, le allerte attive e i grafici delle misurazioni. Non serve configurare nulla: quell'indirizzo funziona da solo su qualunque computer, senza bisogno di modificare file di sistema, e il certificato è già riconosciuto come attendibile dal browser (Firefox fa eccezione: usa un proprio archivio di certificati separato da quello di sistema).
+
+Per generare dati da vedere nella dashboard, in un altro terminale:
 ```bash
-chmod +x infra/tomcat/*.sh scripts/*.sh   # solo la prima volta
-sh scripts/setup-credenziali.sh          # genera credenziali locali casuali e chiede due percorsi utili al Tomcat
-sh scripts/genera-certificati-tls.sh    # genera una CA locale e i certificati TLS per i servizi infrastrutturali
-docker compose up -d --build
+cd sensors-simulator
+python3 -m venv .venv && . .venv/bin/activate && pip install --upgrade pip && pip install -U -r requirements.txt && python -m simulator.main --scenario ondata_di_calore --time-scale 2880
 ```
+`--time-scale 2880` accelera il tempo simulato, così l'evoluzione delle condizioni del vigneto si vede in pochi minuti invece che in giorni. Gli scenari disponibili sono tre: `normale`, `stress_idrico` e `ondata_di_calore`.
 
-N.B.: l'ordine di esecuzione conta poichè `genera-certificati-tls.sh` legge la password del keystore Java da `.env`, generata dal primo script — invertirli produce un errore esplicito.
+Per fermare tutto: `docker compose down` (i dati restano) oppure `docker compose down -v` (riparte da zero al prossimo avvio).
 
-`setup-credenziali.sh` genera password casuali forti e chiede due percorsi assoluti su 
-dove vivono le cinque istanze Tomcat locali e su dove scrivere i log applicativi delle app
-Spring Boot (es. Downloads), verificandone l'esistenza prima di procedere e poi
-scrive tutto in quattro file distinti:
+## Uno sguardo sotto il cofano
 
-- `secrets/postgres_user.txt` / `postgres_password.txt`, letti dal container PostgreSQL tramite
-  Docker secrets (`POSTGRES_USER_FILE`/`POSTGRES_PASSWORD_FILE`);
-- `infra/rabbitmq/definitions.json`, letto dal container RabbitMQ al boot
-  (`management.load_definitions`): contiene l'utente amministrativo con la password **già
-  hashata** (`rabbitmqctl hash_password`), non in chiaro;
-- `.env`, letto sia da Docker Compose sia dalle app Spring Boot per autenticarsi come client
-  AMQP/JDBC — qui la password resta necessariamente in chiaro, perché un client deve sempre
-  presentare la credenziale reale per autenticarsi, non il suo hash. Contiene anche
-  `TLS_KEYSTORE_PASSWORD`, la password dei keystore Java generati dal secondo script.
+Il cuore del sistema è una coda di messaggistica (RabbitMQ) attraverso cui viaggiano le letture dei sensori: un modulo le valuta contro le regole fitosanitarie e climatiche e genera le allerte, un altro le salva su database (PostgreSQL), un altro simula l'attuazione delle raccomandazioni (per esempio, l'attivazione di un impianto di irrigazione), un ultimo modulo espone tutto tramite un'API web che la dashboard consulta. Un reverse proxy (nginx) è l'unico punto d'ingresso raggiungibile dall'esterno, con lo stesso schema — nome a dominio e certificato — che avrebbe un servizio pubblicato davvero su Internet.
 
-Lo script è pensato per essere eseguito una sola volta: se viene rilanciato e trova già uno di
-questi quattro artefatti, non tocca nulla e stampa le istruzioni per una rigenerazione completa
-e coerente, nell'ordine corretto — prima `docker compose down -v` (mentre `.env` esiste ancora,
-perché il servizio `tomcat` lo richiede anche solo per potersi fermare), poi la cancellazione
-dei file, poi la rigenerazione. Rigenerare le credenziali cambia anche `TLS_KEYSTORE_PASSWORD`:
-cancella anche `certs/` e rilancia `genera-certificati-tls.sh` subito dopo, altrimenti i
-certificati vecchi userebbero una password ormai sostituita. Se preferisci impostare le
-credenziali manualmente, copia `.env.example` in `.env` e `secrets/*.txt.example` in
-`secrets/*.txt`, sostituendo i placeholder con valori a tua scelta.
+Ogni connessione fra i vari pezzi è cifrata, comprese quelle puramente interne fra i moduli, non solo quella verso il browser.
 
-`docker compose up -d` avvia l'intero stack: PostgreSQL, RabbitMQ e un container `tomcat`
-con Apache Tomcat 11/Eclipse Temurin JDK 21 usato come CATALINA_HOME per le cinque istanze applicative 
-(`decisionengine`, `attuatori`, `persistence`, `api`, `dashboard`).
+## Requisiti in dettaglio
 
-## Il container `tomcat`
+- Il repository clonato con `git clone` (non lo ZIP scaricabile da GitHub)
+- Docker e Docker Compose
+- Python 3.x
+- OpenSSL e una JDK con `keytool`
 
-Le cartelle reali delle cinque istanze Tomcat (`CATALINA_BASE`) e dei log applicativi delle app
-Spring Boot **vivono al di fuori di questo repository**: sono percorsi appartenenti all'ambiente locale
-indicati dalle variabili `TOMCAT_INSTANCES_DIR` e `SPRING_BOOT_LOGS_DIR` in `.env` e montati nel
-container come bind mount. Chi clona il repository non deve prepararle a mano. A ogni container
-ricreato da zero (dopo un `docker compose down`, con o senza `-v`: mai dopo un semplice `stop`/
-`restart`, che riusa lo stesso container) i quattro moduli Spring Boot vengono ricompilati da
-zero (`mvn package`, codice sorgente incluso nell'immagine, non solo il WAR già pronto) e tutte
-e cinque le istanze rigenerate in `TOMCAT_INSTANCES_DIR` con il risultato — struttura di cartelle,
-`server.xml` con la porta giusta, il WAR appena compilato per le quattro istanze Spring Boot o,
-per `dashboard`, i soli file statici (`package.json` e `*.test.js` esclusi, servono solo alla
-suite di test locale, mai all'istanza servita) — anche se in quella cartella c'era già qualcosa
-da un avvio precedente. Un semplice riavvio dello stesso container, invece, non ricompila né
-rigenera nulla: usa quello che c'è già, avvio rapido invece che un nuovo giro di build Maven.
-
-- `infra/tomcat/Dockerfile` — parte da `tomcat:11-jdk21-temurin-jammy` con un Python minimale
-  aggiunto solo per eseguire `sensors-simulator/scripts/init_nodi_db.py`, un'installazione Maven
-  prelevata (non eseguita) dall'immagine ufficiale `maven:3.9-eclipse-temurin-21`, il codice
-  sorgente dei quattro moduli Spring Boot, i file della dashboard e i due template
-  (`infra/tomcat/server.xml.template`, `infra/tomcat/setenv.sh.template`) pronti per il
-  provisioning delle istanze. La compilazione vera e propria avviene a runtime, non qui — vedi sotto.
-- `infra/tomcat/start-instances.sh` — l'entrypoint: crea (o rigenera) e avvia le cinque istanze in
-  parallelo dalla `CATALINA_HOME` condivisa, ciascuna con la propria `CATALINA_BASE`. Alla prima
-  esecuzione dopo un `docker compose down` (con o senza `-v`, mai dopo un semplice `stop`) pulisce
-  i log delle app Spring Boot, ricompila i quattro moduli con `mvn package` e rigenera tutte e
-  cinque le istanze in `TOMCAT_INSTANCES_DIR` da zero — anche se contenevano già qualcosa da un
-  avvio precedente, dato che è un bind mount e sopravvive a `-v` per conto proprio. Un riavvio
-  dello stesso container, invece, non ricompila né rigenera nulla. Sincronizza inoltre `nodo_sensore`
-  con `sensors-simulator/config/nodi.yaml` eseguendo `init_nodi_db.py`, step necessario perché
-  `persistence`/`api` caricano la mappa dei nodi noti una sola volta, al proprio avvio, e non la
-  ricaricano da sole. Prima di avviare ciascuna istanza, rigenera anche `server.xml` da
-  `server.xml.template` presente nella cartella `conf` di ciascuna di essa, sostituendo il segnaposto
-  `__TLS_KEYSTORE_PASSWORD__` con la password corrente del keystore.
-- `infra/tomcat/istanze-escluse.conf` — un'istanza per riga per escluderla dall'avvio, utile per
-  isolare il troubleshooting su uno o più moduli senza fermare gli altri; di default è vuoto
-  (tutte e cinque partono).
-
-Porte esposte dal container `tomcat` — HTTPS, non più HTTP:
-
-| Istanza | Porta |
-|---|---|
-| `decisionengine` | 8081 |
-| `attuatori` | 8082 |
-| `persistence` | 8083 |
-| `api` | 8084 |
-| `dashboard` | 8085 |
-
-## Comunicazione cifrata (TLS)
-
-Ogni servizio dell'infrastruttura parla TLS, connessioni in chiaro respinte esplicitamente
-dove il protocollo lo consente — come in un ambiente di produzione, anche se tutto gira in
-locale. `scripts/genera-certificati-tls.sh` genera una CA locale autofirmata (valida dieci
-anni, pensata solo per questo ambiente di sviluppo) e un certificato per ciascun servizio:
-
-- **PostgreSQL** — `hostssl` in `infra/postgres/pg_hba.conf`: qualunque connessione di rete
-  senza TLS viene respinta esplicitamente, non solo resa opzionale. Il driver JDBC negozia SSL
-  automaticamente, nessuna configurazione aggiuntiva lato client.
-- **RabbitMQ** — AMQP su 5671 e MQTT su 8883, entrambi i listener in chiaro (5672/1883)
-  disattivati in `infra/rabbitmq/rabbitmq.conf`. I tre moduli Java si autenticano con il
-  truststore generato dallo stesso script (`SPRING_RABBITMQ_SSL_*` in `docker-compose.yml`).
-  La Management UI è raggiungibile anche su TLS (15671), stesso certificato — qui la porta in
-  chiaro (15672) resta attiva: è una console di amministrazione, non un canale dati.
-- **Tomcat** — connettore HTTPS su ciascuna delle cinque porte (8081-8085), certificato e
-  password del keystore condivisi dalle cinque istanze (un solo hostname, `tomcat`).
-
-## Servizi esposti
-
-| Servizio | Porta | Descrizione |
-|---|---|---|
-| RabbitMQ MQTT (TLS) | 8883 | Endpoint per la pubblicazione dei sensori IoT |
-| RabbitMQ AMQP (TLS) | 5671 | Endpoint per i consumer applicativi |
-| RabbitMQ Management UI | 15672 / 15671 (TLS) | Console web per management (credenziali generate da `setup-credenziali.sh`); entrambe le porte restano attive, a differenza di AMQP/MQTT |
-| PostgreSQL (TLS obbligatorio) | 5432 | Persistenza delle misurazioni, allerte e trattamenti |
-
-Lo schema sul database viene creato automaticamente al primo avvio da `infra/postgres/init/01_schema.sql`.
+I comandi riportati sotto installano tutti i prerequisiti principali usando il package manager del sistema.
+#### macOS — Homebrew
+Se non hai già Homebrew, installalo seguendo le istruzioni ufficiali.
+Poi:
+```bash
+brew update
+brew install git python openssl
+brew install --cask temurin
+```
+Docker Desktop può essere installato con:
+```bash
+brew install --cask docker
+```
+Dopo l'installazione, avvia Docker Desktop dal menu Applicazioni oppure con:
+```bash
+open -a Docker
+```
+#### Debian / Ubuntu
+Su Debian e Ubuntu:
+```bash
+sudo apt update
+sudo apt install -y git python3 python3-venv python3-pip openssl ca-certificates openjdk-21-jdk
+```
+Docker può essere installato seguendo il repository ufficiale Docker oppure, su sistemi dove è sufficiente una versione disponibile nei repository della distribuzione:
+```bash
+sudo apt install -y docker.io docker-compose-v2
+```
+Per permettere al proprio utente di usare Docker senza `sudo`:
+```bash
+sudo usermod -aG docker "$USER"
+```
+Dopo questo comando è necessario effettuare nuovamente il login (oppure riavviare la sessione).
+#### Fedora
+Su Fedora:
+```bash
+sudo dnf install -y git python3 python3-pip python3-devel openssl ca-certificates java-latest-openjdk-devel
+```
+Nota: usa `java-latest-openjdk-devel`, non `java-21-openjdk` — a Fedora corrente, la versione 21 non è più tra i pacchetti disponibili, ed è comunque `-devel` (non la sola variante runtime) a fornire `keytool`. Il progetto costruisce le proprie immagini con Java 21 al proprio interno: qui basta una JDK recente qualsiasi.
+Installa quindi Docker (Fedora non ha un pacchetto chiamato `docker`: si chiama `moby-engine`):
+```bash
+sudo dnf install -y moby-engine docker-compose
+```
+Avvia il servizio:
+```bash
+sudo systemctl enable --now docker
+```
+Per utilizzare Docker senza `sudo`:
+```bash
+sudo usermod -aG docker "$USER"
+```
+È necessario effettuare nuovamente il login dopo aver aggiunto l'utente al gruppo `docker`.
+#### Arch Linux
+Su Arch Linux:
+```bash
+sudo pacman -Syu --needed git python python-pip openssl ca-certificates jdk21-openjdk docker docker-compose
+```
+`python-virtualenv` non serve: Python 3.3+ include già il modulo `venv` usato da questo progetto (`python3 -m venv`), è uno strumento di terze parti diverso e non necessario qui.
+Avvia Docker:
+```bash
+sudo systemctl enable --now docker
+```
+Per utilizzare Docker senza `sudo`:
+```bash
+sudo usermod -aG docker "$USER"
+```
+Effettua nuovamente il login dopo aver aggiunto l'utente al gruppo `docker`.
+### Altri sistemi Unix/Linux
+Su altre distribuzioni Linux o sistemi Unix, installa tramite il package manager disponibile i seguenti pacchetti:
+| Componente                   | Scopo                                              |
+| ---------------------------- | -------------------------------------------------- |
+| `git`                        | clonazione del repository                          |
+| `python3`                    | esecuzione del simulatore dei sensori              |
+| `python3-venv` / equivalente | creazione dell'ambiente virtuale Python            |
+| `python3-pip` / equivalente  | installazione delle dipendenze Python              |
+| `openssl`                    | generazione e gestione dei certificati             |
+| JDK                          | fornisce `keytool`, utilizzato per i keystore Java |
+| Docker Engine                | esecuzione dei container                           |
+| Docker Compose               | avvio e collegamento dei servizi                   |
+### Verifica dell'installazione
+Dopo aver installato i prerequisiti, verifica che i comandi seguenti siano disponibili:
+```bash
+git --version
+python3 --version
+openssl version
+java -version
+keytool -help
+docker --version
+docker compose version
+```
+Se tutti i comandi vengono riconosciuti e rispettano le versioni indicate, puoi procedere con l'avvio del progetto.
 
 ## Struttura del repository
 
 ```
 GrapeHealth/
-├── docker-compose.yml
-├── .env.example
-├── .gitignore
-├── scripts/
-│   ├── setup-credenziali.sh        # generazione credenziali locali + password keystore TLS
-│   └── genera-certificati-tls.sh   # CA locale e certificati per postgres/rabbitmq/tomcat
-├── secrets/
-│   ├── postgres_user.txt.example
-│   └── postgres_password.txt.example
-├── infra/
-│   ├── rabbitmq/       # Dockerfile (copia i certificati), configurazione broker MQTT, definitions.json
-│   ├── postgres/       # Dockerfile (copia i certificati), pg_hba.conf, schema database
-│   └── tomcat/         # Dockerfile, entrypoint e file di esclusione del container tomcat
-├── backend/            # decision engine: consumer AMQP, regole fitosanitarie/climatiche
-├── attuatori/          # simulatore di attuazione: consumer AMQP, log strutturati
-├── persistence/        # persistenza su PostgreSQL: consumer AMQP
-├── api/                # REST API: storico, allerte attive, raccomandazioni
-├── sensors-simulator/  # simulatori Python dei nodi IoT installati nelle parcelle del vigneto
-├── dashboard/          # frontend HTML/JS + Chart.js
-├── docs/uml/           # diagrammi UML rappresentativi
-├── tests/
-│   ├── load/           # test end-to-end di carico con misurazione di latenza e throughput (K6)
-│   └── postman/        # test funzionale degli endpoint REST API (Postman/Newman)
+├── docker-compose.yml    # definisce e collega tutti i servizi
+├── scripts/              # generazione di credenziali e certificati, avvio con un comando
+├── infra/                # configurazione di PostgreSQL, RabbitMQ, Tomcat, nginx
+├── backend/               # valuta le regole fitosanitarie/climatiche e genera le allerte
+├── attuatori/              # simula l'esecuzione delle raccomandazioni
+├── persistence/            # salva letture, allerte e trattamenti su database
+├── api/                    # espone i dati alla dashboard
+├── dashboard/              # l'interfaccia web
+├── sensors-simulator/       # simula i sensori IoT nel vigneto
+├── docs/uml/                # diagrammi UML del progetto
+└── tests/                   # test di carico (K6) e degli endpoint (Postman)
 ```
 
-N.B.: `certs/`, `secrets/`, `infra/rabbitmq/definitions.json` e `.env` (artefatti prodotti da `setup-credenziali.sh` e `genera-certificati-tls.sh`) 
-non sono tracciati da Git, in quanto vanno rigenerato su ogni macchina locale e non copiati da un'altra.
+`.env`, `secrets/`, `certs/` e `infra/rabbitmq/definitions.json` contengono credenziali e certificati generati in locale da `scripts/avvia-tutto.sh`: non sono su Git, ogni copia del progetto se li genera da sé.
