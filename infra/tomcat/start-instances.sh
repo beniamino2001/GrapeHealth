@@ -26,7 +26,7 @@ if [[ ! -f "$SENTINEL_CONTAINER" ]]; then
 
   echo "Compilazione dei quattro moduli Spring Boot (mvn package)..."
   mkdir -p /opt/grapehealth/dist
-  for istanza in "${!MODULO_SORGENTE[@]}"; do
+  for istanza in decisionengine attuatori persistence api; do
     modulo="${MODULO_SORGENTE[$istanza]}"
     echo "  - $modulo: mvn package..."
     # timeout, non solo "mvn": una build che si blocca per un problema di rete durante
@@ -58,7 +58,7 @@ provisiona_istanza() {
   rm -rf "${base}"
   mkdir -p "${base}/conf" "${base}/logs" "${base}/temp" "${base}/webapps" "${base}/work" "${base}/bin"
 
-  cp -n "${CATALINA_HOME}"/conf/* "${base}/conf/" 2>/dev/null || true
+  cp "${CATALINA_HOME}"/conf/* "${base}/conf/"
 
   sed -e "s/__PORTA_HTTPS__/${PORTA_HTTPS[$istanza]}/g" \
       -e "s/__PORTA_SHUTDOWN__/${PORTA_SHUTDOWN[$istanza]}/g" \
