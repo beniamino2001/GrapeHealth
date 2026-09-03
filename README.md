@@ -1,6 +1,6 @@
 # GrapeHealth
 
-GrapeHealth è un middleware per la viticoltura di precisione: raccoglie le letture di una rete di sensori IoT installati in vigneto (temperatura, umidità del suolo, bagnatura fogliare, temperatura della bacca), le confronta con soglie tratte dalla letteratura scientifica su malattie della vite e stress climatico, e quando le condizioni lo richiedono genera un'allerta con una raccomandazione — per esempio un'irrigazione di soccorso in caso di stress idrico, o un trattamento fitosanitario in caso di rischio di peronospora. Il tutto è visibile in una dashboard web.
+GrapeHealth è un middleware per la viticoltura di precisione: raccoglie le letture di una rete di sensori IoT installati in vigneto (temperatura dell'aria e del suolo, umidità dell'aria e del suolo, bagnatura fogliare, precipitazioni, potenziale idrico dello stelo, velocità del vento, temperatura della bacca), le confronta con soglie tratte dalla letteratura scientifica su malattie della vite e stress climatico, e quando le condizioni lo richiedono genera un'allerta con una raccomandazione — per esempio un'irrigazione di soccorso in caso di stress idrico, o un trattamento fitosanitario in caso di rischio di peronospora. Il tutto è visibile in una dashboard web.
 
 In questo repository i sensori sono simulati (non c'è un vigneto reale collegato), ma tutto il resto — la messaggistica, le regole, il salvataggio dei dati, l'interfaccia — funziona esattamente come farebbe con sensori veri.
 

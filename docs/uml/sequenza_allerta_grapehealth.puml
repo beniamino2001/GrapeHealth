@@ -1,0 +1,24 @@
+@startuml sequenza_allerta_grapehealth
+participant "Simulatore\nsensori (MQTT)" as Sim
+participant "RabbitMQ\n(amq.topic)" as MQTT
+queue "decisionengine.input" as QIn
+participant "Decision Engine" as DE
+participant "grapehealth.allerte\n(exchange)" as ExAllerte
+queue "persistence.allerte" as QPers
+queue "attuatori.input" as QAtt
+participant "Persistence" as Pers
+participant "Attuatori" as Att
+database "PostgreSQL" as PG
+
+Sim -> MQTT : pubblica misurazione
+MQTT -> QIn : bridge topic
+QIn -> DE : consuma
+DE -> DE : applica regole fitosanitarie/climatiche
+DE -> ExAllerte : pubblica evento allerta
+ExAllerte -> QPers
+ExAllerte -> QAtt
+QPers -> Pers : consuma
+Pers -> PG : persiste
+QAtt -> Att : consuma
+Att -> Att : simula attuazione (log strutturato)
+@enduml

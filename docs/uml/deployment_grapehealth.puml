@@ -1,0 +1,24 @@
+@startuml deployment_grapehealth
+node "Browser" as Browser
+node "nginx\n(TLS :443)" as Nginx
+node "Tomcat\n(5 istanze, :8081-8085)" {
+  component "[decisionengine]" as DE
+  component "[persistence]" as Pers
+  component "[attuatori]" as Att
+  component "[api]" as Api
+  component "[dashboard]" as Dash
+}
+database "PostgreSQL\n:5432" as PG
+queue "RabbitMQ\n(AMQPS + MQTT su TLS)" as MQ
+node "Simulatore sensori\n(Python, MQTT)" as Sim
+
+Browser --> Nginx : HTTPS
+Nginx --> Dash : proxy_pass HTTPS
+Dash --> Api : fetch HTTPS (:8084)
+Sim --> MQ : MQTT su TLS
+DE --> MQ
+Pers --> MQ
+Att --> MQ
+Pers --> PG
+Api --> PG
+@enduml

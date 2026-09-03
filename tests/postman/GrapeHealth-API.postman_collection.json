@@ -675,6 +675,53 @@
               "pm.test(\"Ogni raccomandazione ha l'arricchimento bibliografico\", () => {\n    const body = pm.response.json();\n    if (body.length > 0) {\n        const r = body[0];\n        pm.expect(r.descrizioneRegola).to.not.be.null;\n        pm.expect(r.fonteBibliograficaRegola).to.not.be.null;\n        pm.expect(r.azioniAlternative).to.be.an(\"array\");\n        // svernamento_oospore, infezione_secondaria e danno_radicale non hanno azioni\n        // catalogate in regola_azione (nessuna fonte bibliografica ne documenta una): un\n        // array vuoto e' il risultato corretto per queste tre regole, non un'assenza di dati.\n        if (![\"svernamento_oospore\", \"infezione_secondaria\", \"danno_radicale\"].includes(r.tipoAllerta)) {\n            pm.expect(r.azioniAlternative.length).to.be.greaterThan(0);\n        }\n    }\n});"
             ]
           }
+        },
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              ""
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/raccomandazioni",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "raccomandazioni"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "/api/raccomandazioni?allertaIds=... (oltre il tetto di 500 id)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 400 oltre il tetto di 500 id\", () => pm.response.to.have.status(400));\npm.test(\"Errore ben formato\", () => {\n    const body = pm.response.json();\n    pm.expect(body.errore).to.eql(\"Parametri non validi\");\n    pm.expect(body.messaggio).to.include(\"500\");\n});"
+            ]
+          }
+        },
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// Pre-request: forza 501 id ripetuti per superare deliberatamente il tetto\n// di MAX_ALLERTA_IDS_PER_RICHIESTA (500) e verificare il ramo di errore,\n// senza intaccare la richiesta base che esercita perAllerteAttive().\npm.request.url.query.clear();\nfor (let i = 1; i <= 501; i++) {\n    pm.request.url.query.add({ key: 'allertaIds', value: String(i) });\n}"
+            ]
+          }
         }
       ],
       "request": {

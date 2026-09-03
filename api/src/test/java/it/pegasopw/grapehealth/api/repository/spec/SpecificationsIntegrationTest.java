@@ -2,10 +2,8 @@ package it.pegasopw.grapehealth.api.repository.spec;
 
 import it.pegasopw.grapehealth.api.model.entity.AllertaEntity;
 import it.pegasopw.grapehealth.api.model.entity.MisurazioneEntity;
-import it.pegasopw.grapehealth.api.model.entity.NodoSensoreEntity;
 import it.pegasopw.grapehealth.api.repository.AllertaRepository;
 import it.pegasopw.grapehealth.api.repository.MisurazioneRepository;
-import it.pegasopw.grapehealth.api.repository.NodoSensoreRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -34,8 +32,6 @@ class SpecificationsIntegrationTest {
     @Autowired
     private MisurazioneRepository misurazioneRepository;
     @Autowired
-    private NodoSensoreRepository nodoSensoreRepository;
-    @Autowired
     private JdbcTemplate jdbcTemplate;
 
     @Test
@@ -61,9 +57,10 @@ class SpecificationsIntegrationTest {
 
     @Test
     void filtroIntervalloTemporaleMisurazioneEscludeCorrettamenteFuoriRange() {
-        NodoSensoreEntity nodo = nodoSensoreRepository.findAll().get(0);
-        long idDentro = inserisciMisurazione(nodo.getId(), Instant.parse("2026-06-15T12:00:00Z"));
-        long idFuori = inserisciMisurazione(nodo.getId(), Instant.parse("2026-01-01T00:00:00Z"));
+        long parcellaId = inserisciParcella();
+        long nodoId = inserisciNodo(parcellaId);
+        long idDentro = inserisciMisurazione(nodoId, Instant.parse("2026-06-15T12:00:00Z"));
+        long idFuori = inserisciMisurazione(nodoId, Instant.parse("2026-01-01T00:00:00Z"));
 
         Specification<MisurazioneEntity> intervallo = MisurazioneSpecifications
                 .rilevatoIlDopo(Instant.parse("2026-06-01T00:00:00Z"))
@@ -72,6 +69,18 @@ class SpecificationsIntegrationTest {
 
         assertTrue(risultato.stream().anyMatch(m -> m.getId() == idDentro));
         assertTrue(risultato.stream().noneMatch(m -> m.getId() == idFuori));
+    }
+
+    private long inserisciParcella() {
+        return jdbcTemplate.queryForObject(
+                "INSERT INTO parcella (nome, varieta, colore_bacca) VALUES (?, 'Sangiovese', 'nero') RETURNING id",
+                Long.class, "fixtureParcella-" + System.nanoTime());
+    }
+
+    private long inserisciNodo(long parcellaId) {
+        return jdbcTemplate.queryForObject(
+                "INSERT INTO nodo_sensore (codice, parcella_id, tipo_nodo) VALUES (?, ?, 'meteo') RETURNING id",
+                Long.class, "fixtureNodo-" + System.nanoTime(), parcellaId);
     }
 
     private long inserisciAllerta(String stato) {
