@@ -85,9 +85,28 @@ importa_ca_locale() {
         echo "Importa manualmente $ca_path nel trust store della tua distro." >&2
       fi
       if grep -qi microsoft /proc/version 2>/dev/null; then
-        echo "NOTA: sembra WSL — l'import sopra vale solo per processi Linux dentro WSL." >&2
-        echo "Se apri l'applicazione da un browser Windows, importa $ca_path anche lì con:" >&2
-        echo "  certutil.exe -addstore -f ROOT \"\$(wslpath -w $ca_path)\"" >&2
+        echo "Sistema rilevato: WSL — l'import sopra vale solo per processi Linux dentro WSL." >&2
+        # Il browser che apre davvero https://grapehealth.localhost gira su Windows, non
+        # dentro WSL (WSL è tipicamente senza ambiente grafico proprio): la CA deve essere
+        # attendibile anche lì, non solo nel trust store della distribuzione Linux qui sopra.
+        # "-user" (non lo store di macchina) importa nello store dell'utente Windows corrente
+        # senza richiedere l'elevazione UAC — a differenza dello store di macchina, che la
+        # richiederebbe e romperebbe l'automazione con un prompt interattivo di Windows.
+        ca_path_win="$(wslpath -w "$ca_path" 2>/dev/null || echo "")"
+        if [ -n "$ca_path_win" ] && command -v certutil.exe >/dev/null 2>&1; then
+          echo "Importo la CA anche nello store utente di Windows (il browser userà quello)..." >&2
+          if certutil.exe -addstore -f -user ROOT "$ca_path_win" >/dev/null 2>&1; then
+            echo "CA importata nello store utente di Windows." >&2
+          else
+            echo "ATTENZIONE: import automatico in Windows fallito. Importala manualmente con:" >&2
+            echo "  certutil.exe -addstore -f -user ROOT \"$ca_path_win\"" >&2
+          fi
+        else
+          echo "ATTENZIONE: certutil.exe non raggiungibile da questa sessione WSL" >&2
+          echo "(interoperabilità Windows disabilitata?). Se apri l'app da un browser" >&2
+          echo "Windows, importa $ca_path manualmente con:" >&2
+          echo "  certutil.exe -addstore -f -user ROOT \"\$(wslpath -w $ca_path)\"" >&2
+        fi
       fi
       ;;
 

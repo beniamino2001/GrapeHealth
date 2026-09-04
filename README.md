@@ -1,25 +1,24 @@
 # GrapeHealth
 
-GrapeHealth è un middleware per la viticoltura di precisione: raccoglie le letture di una rete di sensori IoT installati in vigneto (temperatura dell'aria e del suolo, umidità dell'aria e del suolo, bagnatura fogliare, precipitazioni, potenziale idrico dello stelo, velocità del vento, temperatura della bacca), le confronta con soglie tratte dalla letteratura scientifica su malattie della vite e stress climatico, e quando le condizioni lo richiedono genera un'allerta con una raccomandazione — per esempio un'irrigazione di soccorso in caso di stress idrico, o un trattamento fitosanitario in caso di rischio di peronospora. Il tutto è visibile in una dashboard web.
+GrapeHealth è un middleware per la viticoltura di precisione: raccoglie le letture di una rete di sensori IoT installati in vigneto (temperatura dell'aria e del suolo, umidità dell'aria e del suolo, bagnatura fogliare, precipitazioni, potenziale idrico dello stelo, velocità del vento, temperatura della bacca), le confronta con soglie tratte dalla letteratura scientifica su malattie della vite e stress climatico, e quando le condizioni lo richiedono genera un'allerta con una raccomandazione (per esempio un'irrigazione di soccorso in caso di stress idrico, o un trattamento fitosanitario in caso di rischio di peronospora). Il tutto è visibile in una dashboard web.
 
-In questo repository i sensori sono simulati (non c'è un vigneto reale collegato), ma tutto il resto — la messaggistica, le regole, il salvataggio dei dati, l'interfaccia — funziona esattamente come farebbe con sensori veri.
+In questo repository i sensori sono simulati (non c'è un vigneto reale collegato), ma tutto il resto, ovvero la messaggistica, le regole, il salvataggio dei dati, l'interfaccia, funziona esattamente come farebbe con sensori veri.
 
 ## Come avviarlo
 
-Serve avere installati Docker, Python 3 e una JDK (per i dettagli precisi vedi più sotto). Il progetto va scaricato clonandolo con `git clone`, non con lo ZIP di GitHub.
+L'unico prerequisito manuale è avere il progetto clonato con `git clone https://github.com/beniamino2001/GrapeHealth` (non lo ZIP di GitHub: scaricato così non è una vera repository Git, e uno script più avanti ne ha bisogno per funzionare).
 
-Da un terminale, nella cartella del progetto:
+Da un terminale (per OS Windows installa e usa una distribuzione WSL), nella cartella GrapeHealth/ del progetto:
 ```bash
-chmod +x infra/tomcat/*.sh scripts/*.sh   # solo la prima volta
 sh scripts/avvia-tutto.sh
 ```
-> **Nota:** Docker deve essere installato e avviato prima di eseguire `scripts/avvia-tutto.sh`. Su Linux, l'utente che esegue il progetto deve inoltre poter utilizzare Docker senza `sudo` oppure i comandi Docker devono essere eseguiti con i privilegi appropriati.
+Il primo avvio richiede qualche minuto, e fa tutto da solo: riconosce il sistema operativo e installa (o avvia, se già installato ma spento) tutto quello che serve (Python, OpenSSL, una JDK, Docker e Docker Compose), genera le credenziali locali (chiedendo due percorsi specifici sul tuo computer), i certificati per le connessioni cifrate, e avvia tutti i servizi. Alla fine, lo script conferma quando tutto è davvero pronto oppure, se qualcosa non funziona, si ferma e lo dice, senza lasciare l'infrastruttura avviata a metà.
 
-Il primo avvio richiede qualche minuto: genera le credenziali locali (chiedendo due percorsi sul tuo computer locale), i certificati per le connessioni cifrate, poi compila e avvia tutti i servizi. Alla fine, lo script conferma quando tutto è davvero pronto — se qualcosa non funziona, si ferma da solo e lo dice, senza lasciare l'infrastruttura a metà.
+Su Linux, se il tuo utente non fa già parte del gruppo `docker`, lo script ce lo aggiunge da sé e riprende subito, senza bisogno di un nuovo login (a meno che il tuo sistema non abbia lo strumento necessario per farlo su due piedi, nel qual caso te lo dice chiaramente: basta aprire un nuovo terminale e rilanciare).
 
 ## Come si usa
 
-Una volta avviato, apri **`https://grapehealth.localhost`** nel browser: è la dashboard, con lo stato del vigneto simulato, le allerte attive e i grafici delle misurazioni. Non serve configurare nulla: quell'indirizzo funziona da solo su qualunque computer, senza bisogno di modificare file di sistema, e il certificato è già riconosciuto come attendibile dal browser (Firefox fa eccezione: usa un proprio archivio di certificati separato da quello di sistema).
+Una volta avviato, apri **`https://grapehealth.localhost`** nel browser: è la dashboard, con lo stato del vigneto simulato, le allerte attive e i grafici delle misurazioni. Non serve configurare nulla: quell'indirizzo funziona da solo su qualunque computer, senza bisogno di modificare file di sistema, e il certificato è già riconosciuto come attendibile dal browser (N.B.: Firefox fa eccezione in quanto usa un proprio archivio di certificati separato da quello di sistema, pertanto si consiglia la navigazione da un browser basato su Chromium oppure su Safari per macOS). Su WSL vale lo stesso ma un livello più in su: il browser che apri davvero è quello su Windows, e non dentro WSL, e lo script lo sa infatti importa la CA anche nello store dell'utente Windows corrente, senza bisogno di un passaggio manuale in più né di permessi da amministratore.
 
 Per generare dati da vedere nella dashboard, in un altro terminale:
 ```bash
@@ -30,90 +29,48 @@ python3 -m venv .venv && . .venv/bin/activate && pip install --upgrade pip && pi
 
 Per fermare tutto: `docker compose down` (i dati restano) oppure `docker compose down -v` (riparte da zero al prossimo avvio).
 
-## Uno sguardo sotto il cofano
+## Uno sguardo all'infrastruttura
 
-Il cuore del sistema è una coda di messaggistica (RabbitMQ) attraverso cui viaggiano le letture dei sensori: un modulo le valuta contro le regole fitosanitarie e climatiche e genera le allerte, un altro le salva su database (PostgreSQL), un altro simula l'attuazione delle raccomandazioni (per esempio, l'attivazione di un impianto di irrigazione), un ultimo modulo espone tutto tramite un'API web che la dashboard consulta. Un reverse proxy (nginx) è l'unico punto d'ingresso raggiungibile dall'esterno, con lo stesso schema — nome a dominio e certificato — che avrebbe un servizio pubblicato davvero su Internet.
+Il cuore del sistema è una coda di messaggistica (RabbitMQ) attraverso cui viaggiano le letture dei sensori: un modulo le valuta contro le regole fitosanitarie e climatiche e genera le allerte, un altro le salva su database (PostgreSQL), un altro simula l'attuazione delle raccomandazioni (per esempio, l'attivazione di un impianto di irrigazione), un ultimo modulo espone tutto tramite un'API web che la dashboard consulta. Un reverse proxy (nginx) è l'unico punto d'ingresso raggiungibile dall'esterno, con lo stesso schema (nome a dominio e certificato) che avrebbe un servizio pubblicato davvero su Internet.
 
 Ogni connessione fra i vari pezzi è cifrata, comprese quelle puramente interne fra i moduli, non solo quella verso il browser.
 
 ## Requisiti in dettaglio
 
-- Il repository clonato con `git clone` (non lo ZIP scaricabile da GitHub)
-- Docker e Docker Compose
-- Python 3.x
-- OpenSSL e una JDK con `keytool`
-
-I comandi riportati sotto installano tutti i prerequisiti principali usando il package manager del sistema.
+L'unico prerequisito manuale è il repository clonato con `git clone` (non lo ZIP scaricabile da GitHub). Tutto il resto (Docker e Docker Compose, Python 3, OpenSSL, una JDK con `keytool`) `scripts/avvia-tutto.sh` lo installa da sé se manca, riconoscendo automaticamente il sistema operativo (macOS, Debian/Ubuntu e derivate come Linux Mint, Fedora, Arch Linux e derivate come Manjaro). Su una distribuzione non riconosciuta lo script si ferma con un messaggio chiaro invece di indovinare nomi di pacchetto mai verificati: in quel caso, o se preferisci comunque installare tutto a mano prima di lanciarlo, i comandi sotto sono esattamente quelli che lo script userebbe da solo.
 #### macOS — Homebrew
-Se non hai già Homebrew, installalo seguendo le istruzioni ufficiali.
-Poi:
+Se non hai già Homebrew, installalo seguendo le istruzioni ufficiali — è l'unica cosa che lo script non installa da sé.
 ```bash
 brew update
-brew install git python openssl
+brew install python openssl
 brew install --cask temurin
-```
-Docker Desktop può essere installato con:
-```bash
 brew install --cask docker
 ```
-Dopo l'installazione, avvia Docker Desktop dal menu Applicazioni oppure con:
-```bash
-open -a Docker
-```
 #### Debian / Ubuntu
-Su Debian e Ubuntu:
 ```bash
 sudo apt update
-sudo apt install -y git python3 python3-venv python3-pip openssl ca-certificates openjdk-21-jdk
-```
-Docker può essere installato seguendo il repository ufficiale Docker oppure, su sistemi dove è sufficiente una versione disponibile nei repository della distribuzione:
-```bash
-sudo apt install -y docker.io docker-compose-v2
-```
-Per permettere al proprio utente di usare Docker senza `sudo`:
-```bash
+sudo apt install -y python3 python3-venv python3-pip openssl ca-certificates openjdk-21-jdk docker.io docker-compose-v2
 sudo usermod -aG docker "$USER"
 ```
-Dopo questo comando è necessario effettuare nuovamente il login (oppure riavviare la sessione).
+Dopo l'ultimo comando serve un nuovo login (oppure una nuova finestra di terminale) perché l'appartenenza al gruppo `docker` valga — `avvia-tutto.sh` lo fa da sé senza bisogno di questo passaggio, usandolo solo se lanci i comandi Docker a mano prima di eseguirlo.
 #### Fedora
-Su Fedora:
 ```bash
-sudo dnf install -y git python3 python3-pip python3-devel openssl ca-certificates java-latest-openjdk-devel
-```
-Nota: usa `java-latest-openjdk-devel`, non `java-21-openjdk` — a Fedora corrente, la versione 21 non è più tra i pacchetti disponibili, ed è comunque `-devel` (non la sola variante runtime) a fornire `keytool`. Il progetto costruisce le proprie immagini con Java 21 al proprio interno: qui basta una JDK recente qualsiasi.
-Installa quindi Docker (Fedora non ha un pacchetto chiamato `docker`: si chiama `moby-engine`):
-```bash
-sudo dnf install -y moby-engine docker-compose
-```
-Avvia il servizio:
-```bash
+sudo dnf install -y python3 python3-pip python3-devel openssl ca-certificates java-latest-openjdk-devel moby-engine docker-compose
 sudo systemctl enable --now docker
-```
-Per utilizzare Docker senza `sudo`:
-```bash
 sudo usermod -aG docker "$USER"
 ```
-È necessario effettuare nuovamente il login dopo aver aggiunto l'utente al gruppo `docker`.
+Due dettagli non ovvi in queste righe: `java-latest-openjdk-devel`, non `java-21-openjdk` — a Fedora corrente la versione 21 non è più tra i pacchetti disponibili, ed è comunque `-devel` (non la sola variante runtime) a fornire `keytool`; il progetto costruisce le proprie immagini con Java 21 al proprio interno, quindi sull'host basta una JDK recente qualsiasi. E Docker: Fedora non ha un pacchetto chiamato `docker`, si chiama `moby-engine`.
 #### Arch Linux
-Su Arch Linux:
 ```bash
-sudo pacman -Syu --needed git python python-pip openssl ca-certificates jdk21-openjdk docker docker-compose
-```
-`python-virtualenv` non serve: Python 3.3+ include già il modulo `venv` usato da questo progetto (`python3 -m venv`), è uno strumento di terze parti diverso e non necessario qui.
-Avvia Docker:
-```bash
+sudo pacman -Syu --needed python python-pip openssl ca-certificates jdk21-openjdk docker docker-compose
 sudo systemctl enable --now docker
-```
-Per utilizzare Docker senza `sudo`:
-```bash
 sudo usermod -aG docker "$USER"
 ```
-Effettua nuovamente il login dopo aver aggiunto l'utente al gruppo `docker`.
+`python-virtualenv` non serve: Python 3.3+ include già il modulo `venv` usato da questo progetto (`python3 -m venv`) — è uno strumento di terze parti diverso, non necessario qui.
 ### Altri sistemi Unix/Linux
-Su altre distribuzioni Linux o sistemi Unix, installa tramite il package manager disponibile i seguenti pacchetti:
+`avvia-tutto.sh` riconosce solo le famiglie sopra (comprese le derivate, tramite `ID_LIKE`); su qualunque altro sistema Unix installa tramite il package manager disponibile i seguenti pacchetti:
 | Componente                   | Scopo                                              |
 | ---------------------------- | -------------------------------------------------- |
-| `git`                        | clonazione del repository                          |
 | `python3`                    | esecuzione del simulatore dei sensori              |
 | `python3-venv` / equivalente | creazione dell'ambiente virtuale Python            |
 | `python3-pip` / equivalente  | installazione delle dipendenze Python              |
@@ -122,9 +79,8 @@ Su altre distribuzioni Linux o sistemi Unix, installa tramite il package manager
 | Docker Engine                | esecuzione dei container                           |
 | Docker Compose               | avvio e collegamento dei servizi                   |
 ### Verifica dell'installazione
-Dopo aver installato i prerequisiti, verifica che i comandi seguenti siano disponibili:
+Non necessaria prima di `sh scripts/avvia-tutto.sh` (lo script verifica da sé cosa manca), utile se hai installato tutto a mano o vuoi solo controllare lo stato del sistema:
 ```bash
-git --version
 python3 --version
 openssl version
 java -version
@@ -132,14 +88,13 @@ keytool -help
 docker --version
 docker compose version
 ```
-Se tutti i comandi vengono riconosciuti e rispettano le versioni indicate, puoi procedere con l'avvio del progetto.
 
 ## Struttura del repository
 
 ```
 GrapeHealth/
 ├── docker-compose.yml    # definisce e collega tutti i servizi
-├── scripts/              # generazione di credenziali e certificati, avvio con un comando
+├── scripts/              # generazione di credenziali e certificati e avvio infrastruttura e applicazioni con un comando
 ├── infra/                # configurazione di PostgreSQL, RabbitMQ, Tomcat, nginx
 ├── backend/               # valuta le regole fitosanitarie/climatiche e genera le allerte
 ├── attuatori/              # simula l'esecuzione delle raccomandazioni
