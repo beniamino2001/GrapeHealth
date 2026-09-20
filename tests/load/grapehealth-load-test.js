@@ -30,14 +30,14 @@ const PARCELLE = ['parcellaA', 'parcellaB', 'parcellaC'];
 const NOMI_PARCELLA_CON_INESISTENTE = [...PARCELLE, 'parcellaInesistente'];
 // Le stesse tre parcelle, più un nome inesistente: usata solo per il filtro
 // di /api/allerte, dove AllerteService.cerca() restituisce 200 con pagina
-// vuota per una parcella non riconosciuta — un ramo distinto da "tipo e
+// vuota per una parcella non riconosciuta; un ramo distinto da "tipo e
 // parcella validi ma senza corrispondenze in questa sessione", mai
 // esercitato finora perché la chiamata #3 pescava sempre da PARCELLE.
 const PARCELLE_ALLERTA_CON_INESISTENTE = [...PARCELLE, 'parcellaInesistente'];
 // Le stesse tre parcelle, più un nome inesistente: usata per il filtro di
 // /api/misurazioni, dove StoricoMisurazioniService.cerca() restituisce 200
 // con pagina vuota per una parcella non riconosciuta (NodoResolver
-// restituisce una lista di nodi vuota, non null) — lo stesso comportamento
+// restituisce una lista di nodi vuota, non null), lo stesso comportamento
 // già verificato su /api/allerte, qui mai esercitato perché la chiamata #1
 // pescava sempre da PARCELLE.
 const PARCELLE_MISURAZIONI_CON_INESISTENTE = [...PARCELLE, 'parcellaInesistente'];
@@ -195,8 +195,7 @@ export default function (data) {
   // Un caso su dieci usa un solo estremo dell'intervallo temporale (solo 'dal'
   // o solo 'al'): a differenza della chiamata su dal+al insieme (piu' sotto),
   // un solo estremo non fa scattare il ramo non paginato del service, resta
-  // sul percorso normale con un predicato temporale singolo — comportamento
-  // dichiarato, mai esercitato finora ne' qui ne' nella chiamata sull'intervallo.
+  // sul percorso normale con un predicato temporale singolo.
   const usaEstremoSingolo = Math.random() < 0.1;
   const estremoSingolo = usaEstremoSingolo
     ? (Math.random() < 0.5
@@ -224,8 +223,7 @@ export default function (data) {
     // Nessun'altra asserzione: come per l'intervallo dal+al completo piu'
     // sotto, un estremo ancorato all'orologio reale non garantisce di
     // trovare corrispondenze contro rilevatoIl, scritto sull'orologio
-    // simulato - l'affidabilita' del contenuto in questo caso non e'
-    // responsabilita' di questo endpoint.
+    // simulato.
   } else if (omettiParcella) {
     check(res, {
       'misurazioni (vista aggregata, parcella omessa): contenuto non vuoto': (r) => {
@@ -356,13 +354,23 @@ export default function (data) {
   sleep(0.3);
 
   // --- GET /api/raccomandazioni (allertaId singolo, o nessun parametro) ---
-  // Senza allertaId né allertaIds, RaccomandazioneController usa
-  // perAllerteAttive() — il ramo che dashboard/js/stats.js chiama davvero
-  // per il grafico delle allerte attive. Esercitato qui un caso su cinque,
-  // deliberatamente, non solo come fallback teorico di un pool vuoto (che in
-  // pratica non si è mai verificato): senza check di contenuto in quel caso,
-  // perché il numero di allerte attive in un dato istante può legittimamente
-  // essere zero.
+  // Il pool di setup() è uno scatto singolo, preso prima ancora che 'smoke'
+  // parta: se il sistema continua a risolvere allerte durante la run (il
+  // caso normale), quel pool resta bloccato all'istante iniziale per tutte
+  // le iterazioni successive, anche quando ne esistono molte di più. Un
+  // caso su cinquanta lo rinfresca con un'interrogazione reale, lo stesso
+  // schema che main.js usa per ricaricare periodicamente lo stato.
+  if (Math.random() < 0.02) {
+    const resFresh = http.get(`${BASE_URL}/api/allerte?stato=risolta&size=100`, {
+      tags: { endpoint: 'allerte' },
+    });
+    try {
+      const idsFreschi = (JSON.parse(resFresh.body).content || []).map((a) => a.id);
+      if (idsFreschi.length > 0) data.idAllerteRisolte = idsFreschi;
+    } catch (e) {
+      // pool esistente non toccato in caso di risposta malformata
+    }
+  }
   const ids = data.idAllerteRisolte;
   const usaNessunParametro = ids.length === 0 || Math.random() < 0.2;
   const url = usaNessunParametro
@@ -506,7 +514,7 @@ export default function (data) {
   });
 
   // --- GET /api/misurazioni (dal+al insieme): ramo separato in
-  // StoricoMisurazioniService — con entrambi i limiti presenti abbandona la
+  // StoricoMisurazioniService. Con entrambi i limiti presenti abbandona la
   // paginazione e restituisce l'intera finestra, per non troncare
   // silenziosamente un intervallo richiesto per intero. Un caso su due usa
   // un intervallo mal ordinato (dal dopo al), deliberatamente invalido:
@@ -523,7 +531,7 @@ export default function (data) {
   // Un quarto delle chiamate con intervallo valido omette 'parcella': stesso
   // caso reale di main.js con finestra attiva e filtro parcella vuoto, che
   // attiva il ramo piu' oneroso del controller (intera finestra, senza
-  // paginazione, su tutti e dodici i nodi) — mai esercitato prima d'ora.
+  // paginazione, su tutti e dodici i nodi).
   const vistaAggregataIntervallo = !usaIntervalloInvalido && Math.random() < 0.25;
   // parametro presente nella grande maggioranza dei casi, coerente con l'uso
   // reale di main.js; omesso in una minoranza per non perdere copertura sul

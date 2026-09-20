@@ -25,7 +25,7 @@ from simulator.main import (
 @pytest.fixture
 def config():
     """La config reale del progetto (config/nodi.yaml): valida_config() deve accettare esattamente 
-    quello che main.py userebbe davvero, non una versione semplificata costruita ad hoc per il test."""
+    quello che main.py userebbe davvero."""
     return carica_config()
 
 
@@ -38,7 +38,7 @@ class TestConfigValidaNonSollevaEccezioni:
 class TestValidaSezioniConfig:
     """valida_sezioni_config() gira in main() PRIMA di valida_config(), sulle
     due sezioni di primo livello che main() indicizza direttamente un
-    istante dopo — un livello più in alto rispetto a tutto il resto di
+    istante dopo; un livello più in alto rispetto a tutto il resto di
     questo file, dove ogni altro controllo vive dentro valida_config()
     stessa."""
 
@@ -77,7 +77,7 @@ class TestScenarioNonValido:
 class TestSezioneParcelleMancanteONonValida:
     """A differenza di ogni altro controllo di valida_config(), qui l'errore
     di partenza non sarebbe un valore sbagliato dentro 'parcelle', ma
-    l'assenza stessa della chiave (o una lista vuota) — un caso limite più
+    l'assenza stessa della chiave (o una lista vuota), un caso limite più
     strutturale che di contenuto, ma con la stessa conseguenza pratica di
     un qualunque altro campo non valido: un KeyError grezzo invece di un
     messaggio che dica cosa manca."""
@@ -96,11 +96,10 @@ class TestSezioneNodiMancanteInUnaParcella:
     """Prima di questa classe, valida_config() usava
     parcella.get('nodi', []): una parcella senza 'nodi' passava la
     validazione (zero nodi, nessun errore), ma il ciclo di pubblicazione in
-    main() usa parcella['nodi'] senza .get() — la stessa config sarebbe
+    main() usa parcella['nodi'] senza .get(); la stessa config sarebbe
     quindi andata in crash con un KeyError al primo tick, dopo che
     valida_config() aveva già dichiarato tutto a posto. Stessa
-    incoerenza — validazione più permissiva del codice che dovrebbe
-    proteggere — dell'assenza di 'parcelle' al livello superiore, qui
+    incoerenza dell'assenza di 'parcelle' al livello superiore, qui
     ripetuta un livello più sotto."""
 
     @pytest.mark.parametrize("nodi_non_validi", [None, [], "assente"])
@@ -119,7 +118,7 @@ class TestNomeParcellaOCodiceNodoNonValido:
     di valori validi: qualunque stringa "ragionevole" andrebbe bene per il
     solo scopo di identificare un nodo, ma non ogni stringa può attraversare
     indenne un topic MQTT, la routing key AMQP che ne deriva, e una riga di
-    log — da cui il pattern ristretto, non un elenco di typo noti."""
+    log."""
 
     @pytest.mark.parametrize("nome_non_valido", [
         "parcella.A",       # punto: introduce un segmento in più nella routing key AMQP
@@ -232,7 +231,7 @@ class TestTimeScaleNonValido:
     def test_non_finito_solleva_errore(self, config, time_scale_non_finito):
         """--time-scale nan/inf/-inf: valori che argparse(type=float) accetta
         senza obiettare (sono float validi per Python), ma che 'sfuggono' al
-        solo controllo '<= 0' — nan e inf non sono mai <= 0. Senza questo
+        solo controllo '<= 0'; nan e inf non sono mai <= 0. Senza questo
         controllo, il crash arriverebbe più avanti, dentro
         SimulatedClock.now() (ValueError/OverflowError nella conversione a
         intero di un timedelta non finito), con un messaggio che non nomina
@@ -253,7 +252,7 @@ class TestTimeScaleNonValido:
         """Raggiungibile da main() dopo che l'estrazione è diventata un
         .get() difensivo: un time_scale mancante dal YAML arriva qui come
         None, non più con un KeyError. Senza il controllo isinstance() prima
-        di math.isfinite(), questo caso solleverebbe TypeError — un tipo di
+        di math.isfinite(), questo caso solleverebbe TypeError; un tipo di
         eccezione che il chiamante non si aspetta di dover intercettare
         insieme a ValueError."""
         with pytest.raises(ValueError, match="time_scale non valido"):
@@ -263,7 +262,7 @@ class TestIntervalloPubblicazioneNonValido:
     """Mai validato prima di questa classe: config["simulazione"]["intervallo_pubblicazione_secondi"]
     veniva letto con indicizzazione diretta in main(), quindi un valore
     assente o non numerico si sarebbe comunque fatto notare con un
-    KeyError/TypeError — solo non con un messaggio che dicesse cosa non
+    KeyError/TypeError - solo non con un messaggio che dicesse cosa non
     andava. Stessa natura di time_scale (finisce in una divisione), stesso
     tipo di controllo."""
 

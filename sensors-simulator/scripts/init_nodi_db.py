@@ -40,8 +40,7 @@ from dotenv import load_dotenv
 CONFIG_PATH = Path(__file__).resolve().parent.parent / "config" / "nodi.yaml"
 # Stessa CA locale che firma postgres/rabbitmq/tomcat (v. scripts/genera-
 # certificati-tls.sh); risolta relativamente a questo file, non da variabile
-# d'ambiente, per funzionare identica sia da host sia dentro il container
-# Tomcat — stesso principio già usato per CONFIG_PATH qui sopra.
+# d'ambiente, per funzionare identica sia da host sia dentro il container Tomcat.
 CA_CERT_PATH = Path(__file__).resolve().parent.parent.parent / "certs" / "ca.crt"
 
 UPSERT_PARCELLA_QUERY = """
@@ -90,7 +89,7 @@ DEACTIVATE_ORPHANED_NODI_QUERY = """
 
 def main():
     load_dotenv(override=True)  # protegge dal caso in cui una variabile stantia già esportata nella
-    # shell (es. da una sessione precedente) prevalga su un .env appena rigenerato — rilevante solo
+    # shell (es. da una sessione precedente) prevalga su un .env appena rigenerato, rilevante solo
     # nell'esecuzione da host: dentro il container Tomcat, .env non esiste come file (v. sopra)
 
     with open(CONFIG_PATH, encoding="utf-8") as f:
@@ -121,7 +120,7 @@ def main():
             # pg_hba.conf accetta solo connessioni "hostssl": senza sslmode
             # esplicito, il default 'prefer' di psycopg2 cifrerebbe comunque
             # (il server lo richiede) ma senza verificare il certificato
-            # contro alcuna CA — 'verify-full' verifica sia la catena sia
+            # contro alcuna CA; 'verify-full' verifica sia la catena sia
             # che l'host a cui ci si connette corrisponda al certificato.
             sslmode="verify-full",
             sslrootcert=str(CA_CERT_PATH),
@@ -164,8 +163,8 @@ def main():
                     f"config/nodi.yaml: campo {exc} mancante per la parcella "
                     f"{parcella.get('nome', '<parcella senza nome>')}. Questo "
                     f"script non applica la stessa validazione semantica di "
-                    f"simulator/main.py (valida_config()) — qui basta che il "
-                    f"campo esista, il suo valore non viene verificato — ma un "
+                    f"simulator/main.py (valida_config()) [qui basta che il "
+                    f"campo esista, il suo valore non viene verificato] ma un "
                     f"campo assente produrrebbe altrimenti un KeyError non "
                     f"diagnosticabile a metà della sincronizzazione.",
                     file=sys.stderr,

@@ -1,21 +1,18 @@
 #!/usr/bin/env sh
 # Avvia l'intero stack con un solo comando, incatenando nell'ordine imposto da un vincolo
 # reale e non aggirabile: docker-compose.yml usa "${VAR}" per porte, percorsi e il segreto
-# del keystore, letti da .env — senza quel file Compose fallisce già nella sola lettura
-# della propria configurazione (verificato: "invalid spec: :...: empty section between
-# colons"), prima ancora di provare a costruire una sola immagine. "docker compose up
-# -d --build" da solo, su una macchina che non ha mai eseguito nulla di questo repository,
-# non può quindi bastare: prima delle credenziali/certificati TLS servono anche Python,
-# OpenSSL, una JDK e Docker stesso — installati qui sotto se mancanti, non solo verificati.
+# del keystore, letti da .env. "docker compose up -d --build" da solo, su una macchina 
+# che non ha mai eseguito nulla di questo repository, non può quindi bastare: prima delle
+# credenziali/certificati TLS servono anche Python, OpenSSL, una JDK e Docker stesso.
 #
-# Uso: sh scripts/avvia-tutto.sh (dalla radice del repository, dopo un git clone — non
+# Uso: sh scripts/avvia-tutto.sh (dalla radice del repository, dopo un git clone e non da
 # uno ZIP scaricato, scripts/setup-credenziali.sh richiede una vera repository Git). Git
 # non è fra le dipendenze gestite da questo script: chi arriva a eseguirlo lo ha già, per
 # definizione, dato che è così che si ottiene questo stesso file.
 set -eu
 cd "$(dirname "$0")/.."
 
-# Sezione di installazione delle dipendenze — pensata per essere incollata all'inizio di
+# Sezione di installazione delle dipendenze pensata per essere incollata all'inizio di
 # scripts/avvia-tutto.sh, prima della generazione di credenziali/certificati. Git non è fra
 # le dipendenze gestite qui: chi arriva a eseguire questo script ha già clonato il
 # repository, quindi lo ha già per definizione.
@@ -50,11 +47,6 @@ if [ "$SISTEMA" = "sconosciuto" ]; then
   exit 1
 fi
 
-# WSL è ortogonale a SISTEMA, non un'alternativa: la distribuzione Linux dentro WSL è
-# comunque una delle tre sopra (qui serve solo a decidere il pacchetto Python/OpenSSL/JDK
-# giusto), ma Docker è diverso — l'approccio standard su WSL è Docker Desktop per Windows
-# con l'integrazione WSL2, non un motore Docker separato dentro la distribuzione Linux:
-# due Docker indipendenti che non si parlano fra loro sarebbero più confusione che aiuto.
 IN_WSL=0
 if [ "$SISTEMA" != "macos" ] && grep -qi microsoft /proc/version 2>/dev/null; then
   IN_WSL=1
@@ -68,7 +60,7 @@ if [ "$SISTEMA" = "macos" ] && ! command -v brew >/dev/null 2>&1; then
   exit 1
 fi
 
-# Root non ha bisogno di sudo — e su molti sistemi minimali (container, alcune VM) sudo
+# Root non ha bisogno di sudo e su molti sistemi minimali (container, alcune VM) sudo
 # potrebbe non essere installato affatto: usarlo comunque romperebbe lo script proprio dove
 # servirebbe di meno, dato che da root ogni comando sotto funziona già senza.
 if [ "$(id -u)" -eq 0 ]; then
@@ -147,7 +139,7 @@ installa_docker() {
     # interattivo di Windows: meglio dirlo chiaramente e uscire che restare bloccati lì.
     if ! winget.exe install -e --id Docker.DockerDesktop --silent \
          --accept-package-agreements --accept-source-agreements; then
-      echo "ERRORE: installazione automatica di Docker Desktop fallita — richiede permessi" >&2
+      echo "ERRORE: installazione automatica di Docker Desktop fallita - richiede permessi" >&2
       echo "di amministratore Windows che questa sessione non ha. Installalo tu: apri" >&2
       echo "PowerShell come amministratore e lancia" >&2
       echo "  winget install -e --id Docker.DockerDesktop" >&2
@@ -174,8 +166,7 @@ avvia_docker() {
   if [ "$IN_WSL" -eq 1 ]; then
     echo "  - Avvio Docker Desktop (Windows)..."
     # Percorso di installazione standard: se l'utente l'ha installato altrove questo
-    # tentativo silenziosamente non fa nulla, e l'attesa sotto se ne accorge comunque —
-    # dice chiaramente che non è partito invece di fingere un successo.
+    # tentativo silenziosamente non fa nulla, e l'attesa sotto se ne accorge comunque.
     docker_desktop_exe="/mnt/c/Program Files/Docker/Docker/Docker Desktop.exe"
     if [ -x "$docker_desktop_exe" ]; then
       "$docker_desktop_exe" >/dev/null 2>&1 &
@@ -221,8 +212,7 @@ avvia_docker() {
         # "sg" non è garantito presente ovunque: su Arch Linux è stato rimosso dal
         # pacchetto shadow in alcuni aggiornamenti (segnalato sul forum ufficiale),
         # senza sostituto immediato nello stesso pacchetto. Senza "sg" non c'è modo di
-        # applicare il nuovo gruppo alla sessione corrente senza un logout — meglio
-        # dirlo chiaramente che fallire con un criptico "sg: command not found".
+        # applicare il nuovo gruppo alla sessione corrente senza un logout.
         if command -v sg >/dev/null 2>&1; then
           echo "  - Riavvio con il nuovo gruppo attivo, senza bisogno di un nuovo login..."
           exec sg docker -c "sh \"$0\""
@@ -259,16 +249,12 @@ echo
 echo "=== 4/4: avvio dello stack pulito ==="
 docker compose down -v && docker compose up -d --build
 
-# "docker compose up -d" ritorna successo appena i container sono avviati, non quando sono
+# "docker compose up -d" va avanti appena i container sono avviati, non quando sono
 # davvero operativi. postgres/rabbitmq hanno un healthcheck che "depends_on" rispetta
-# davvero; tomcat no — un solo healthcheck non potrebbe rappresentare lo stato di cinque
-# istanze indipendenti nello stesso container, e senza un healthcheck qui sotto questo
-# script direbbe "Stack avviato" anche con Tomcat già uscito un istante dopo (verificato:
-# un container che esce 2 secondi dopo "Started" non impedisce comunque a "up -d" di
-# ritornare 0). Si attende quindi, fino a un massimo pari al timeout già concesso al
+# davvero. Si attende quindi, fino a un massimo pari al timeout già concesso al
 # build Maven in start-instances.sh, che compaia nei log di tomcat lo stesso messaggio
-# che quello script stampa a fine avvio riuscito — uscendo prima se compare, e
-# interrompendosi subito, senza aspettare il resto del timeout, se un container esce.
+# che quello script stampa a fine avvio riuscito (uscendo prima se compare, e
+# interrompendosi subito, senza aspettare il resto del timeout, se un container esce).
 echo
 echo "Verifico che Tomcat completi l'avvio..."
 TIMEOUT_SECONDI=600
@@ -276,14 +262,6 @@ INTERVALLO=5
 ATTESA=0
 AVVIATO=0
 while [ "$ATTESA" -lt "$TIMEOUT_SECONDI" ]; do
-  # Niente ancoraggio "^tomcat" davanti al testo cercato: sembrava una precauzione in più,
-  # invece era il bug — "docker compose logs tomcat" prefissa ogni riga con il vero nome
-  # del container quando "container_name" è impostato esplicitamente (qui grapehealth-tomcat,
-  # non "tomcat"), quindi quel prefisso non ha mai trovato corrispondenza. Verificato
-  # riproducendo l'esatta configurazione reale (stesso container_name) con un demone Docker
-  # vero: il pattern vecchio non trovava mai il messaggio anche quando era presente per
-  # davvero, esattamente il sintomo osservato. "docker compose logs tomcat" filtra già da
-  # solo al solo servizio tomcat: non serve verificare anche il prefisso della riga.
   if docker compose logs tomcat 2>/dev/null | grep -q "Istanze avviate:"; then
     AVVIATO=1
     break
@@ -296,14 +274,11 @@ while [ "$ATTESA" -lt "$TIMEOUT_SECONDI" ]; do
     exit 1
   fi
   # "docker compose up -d" non aspetta nemmeno l'healthcheck di postgres/rabbitmq stessi
-  # prima di ritornare (verificato: un healthcheck destinato a non passare mai non ha
-  # impedito a "up -d" di tornare in un secondo) — solo blocca la CREAZIONE di tomcat, che
-  # dipende da "condition: service_healthy" su entrambi. Se uno dei due restasse bloccato
-  # "unhealthy" per sempre, senza questo controllo il ciclo aspetterebbe l'intero timeout
+  # prima di ritornare. Se uno dei due restasse bloccato "unhealthy" per sempre, 
+  # senza questo controllo il ciclo aspetterebbe l'intero timeout
   # sperando di trovare tomcat nei log, e il messaggio finale punterebbe a tomcat invece
   # che alla causa vera. postgres/rabbitmq "in salute" restano comunque in esecuzione anche
-  # se il proprio healthcheck fallisce (non esce, resta semplicemente "unhealthy"): il
-  # controllo sugli "usciti" sopra non lo vedrebbe mai, serve un controllo separato.
+  # se il proprio healthcheck fallisce (non esce, resta semplicemente "unhealthy").
   NON_SANI=$(docker compose ps --format '{{.Name}} {{.Health}}' 2>/dev/null | awk '$2 == "unhealthy" {print $1}' || true)
   if [ -n "$NON_SANI" ]; then
     echo "ERRORE: uno o più container non superano il proprio healthcheck, tomcat resta in attesa e non partirà mai:" >&2

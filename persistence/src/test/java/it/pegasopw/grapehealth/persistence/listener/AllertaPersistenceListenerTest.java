@@ -11,7 +11,14 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -193,8 +200,57 @@ class AllertaPersistenceListenerTest {
         assertNotNull(quellaSevera.getRisoluzionePianificataIl());
 
         // Mai due allerte attive in contemporanea sullo stesso nodo/tipo,
-        // indipendentemente dal livello - il sintomo osservato in produzione.
+        // indipendentemente dal livello.
         long attive = allerte.stream().filter(a -> "attiva".equals(a.getStato())).count();
         assertEquals(1, attive, "un solo nodo/tipo non può avere due livelli di rischio attivi insieme");
+    }
+
+    @Test
+    void dueEventiConcorrentiSulloStessoNodoTipoNonProduconoAllerteAttiveDuplicate() throws Exception {
+        // Verifica diretta del vincolo idx_allerta_attiva_unica: due chiamate
+        // concorrenti dirette al listener (non attraverso il broker, quindi senza
+        // il retry che in produzione assorbirebbe l'eventuale conflitto) devono
+        // comunque non lasciare mai più di un'allerta attiva per lo stesso
+        // nodo/tipo (la seconda, se arriva mentre la prima non ha ancora
+        // committato, deve fallire sul vincolo di database, non scrivere una
+        // riga duplicata).
+        String tipoDiTest = "svernamento_oospore";
+        AllertaEvent eventoConcorrente = evento(tipoDiTest, "moderato");
+
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        CountDownLatch viaLibera = new CountDownLatch(1);
+        try {
+            List<Future<Void>> risultati = new ArrayList<>();
+            for (int i = 0; i < 2; i++) {
+                risultati.add(executor.submit(() -> {
+                    viaLibera.await();
+                    listener.onAllerta(eventoConcorrente);
+                    return null;
+                }));
+            }
+            viaLibera.countDown();
+            for (Future<Void> f : risultati) {
+                try {
+                    f.get(10, TimeUnit.SECONDS);
+                } catch (ExecutionException seVinceLAltroThread) {
+                    // Una delle due chiamate può legittimamente fallire sul
+                    // vincolo: è proprio il comportamento che questo test verifica.
+                }
+            }
+
+            List<AllertaEntity> attive = allertaRepository.findAll().stream()
+                    .filter(a -> "messaggio di test integrazione".equals(a.getDescrizione())
+                            && tipoDiTest.equals(a.getTipo())
+                            && "attiva".equals(a.getStato()))
+                    .toList();
+            assertEquals(1, attive.size(),
+                    "due pubblicazioni concorrenti per lo stesso nodo/tipo non devono mai produrre due allerte attive");
+        } finally {
+            executor.shutdownNow();
+            allertaRepository.findAll().stream()
+                    .filter(a -> "messaggio di test integrazione".equals(a.getDescrizione())
+                            && tipoDiTest.equals(a.getTipo()))
+                    .forEach(a -> allertaRepository.deleteById(a.getId()));
+        }
     }
 }

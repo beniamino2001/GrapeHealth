@@ -19,10 +19,10 @@ test('formattaData su un singolo giorno/mese non aggiunge o toglie zeri iniziali
   assert.equal(formattaData('2026-01-05'), '05/01/2026');
 });
 
-test('formattaData su input vuoto o assente restituisce "—"', () => {
-  assert.equal(formattaData(''), '—');
-  assert.equal(formattaData(null), '—');
-  assert.equal(formattaData(undefined), '—');
+test('formattaData su input vuoto o assente restituisce "-"', () => {
+  assert.equal(formattaData(''), '-');
+  assert.equal(formattaData(null), '-');
+  assert.equal(formattaData(undefined), '-');
 });
 
 test('formattaData non passa mai da un oggetto Date, quindi nessun fuso orario può spostare il giorno', () => {

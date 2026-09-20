@@ -42,8 +42,8 @@ from simulator.generator import (
 # --- Soglie del decision engine, duplicate qui a scopo di verifica --------
 
 SOGLIA_ONDATA_DI_CALORE_C = 35.0  # RegolaOndataDiCalore, moderato
-SOGLIA_ONDATA_DI_CALORE_SEVERO_C = 40.0  # RegolaOndataDiCalore, severo (Luo et al. 2011)
-SOGLIA_DANNO_RADICALE_C = 35.0  # temperatura_suolo, severo (Field et al. 2020)
+SOGLIA_ONDATA_DI_CALORE_SEVERO_C = 40.0  # RegolaOndataDiCalore, severo (Luo 2011)
+SOGLIA_DANNO_RADICALE_C = 35.0  # temperatura_suolo, severo (Field 2020)
 
 SOGLIA_SUNBURN_MODERATO_C = 45.0  # RegolaSunburn.SOGLIA_MODERATO
 SOGLIE_SUNBURN_LETALI_C = {
@@ -72,8 +72,7 @@ def _dt_per_ora(ora: float) -> datetime:
 def _con_rumore_bloccato(monkeypatch: pytest.MonkeyPatch, estremo: str) -> None:
     """Blocca random.uniform(a, b) del modulo generator sul proprio estremo
     dichiarato: 'max' restituisce sempre b, 'min' restituisce sempre a. Le
-    funzioni di generator.py vengono comunque eseguite per intero — solo il
-    termine di rumore diventa deterministico, non la formula."""
+    funzioni di generator.py vengono comunque eseguite per intero."""
     if estremo == "max":
         monkeypatch.setattr(random, "uniform", lambda a, b: b)
     else:
@@ -109,7 +108,7 @@ def _temp_bacca_max_teorico(scenario: str, colore: str, monkeypatch: pytest.Monk
 
 def _temp_bacca_max_teorico_a_vento_realistico(scenario: str, colore: str, monkeypatch: pytest.MonkeyPatch) -> float:
     """Come sopra, ma il vento non è fissato: viene generato per davvero da
-    genera_velocita_vento(), con lo stesso rumore bloccato al massimo — che
+    genera_velocita_vento(), con lo stesso rumore bloccato al massimo, che
     per il vento significa il caso PIÙ SFAVOREVOLE per temp_bacca (più vento,
     più raffreddamento), non il più favorevole. Usato per verificare quanto
     spesso una soglia resta raggiungibile in condizioni realistiche, non solo
@@ -167,16 +166,30 @@ class TestTettoTeoricoOndataDiCalore:
 
 class TestTettoTeoricoSunburn:
     """RegolaSunburn: soglia moderato 45°C + 4 soglie letali dipendenti dalla
-    durata (Müller et al. 2023). Verificato separatamente per colore bacca."""
+    durata (Müller 2023). Verificato separatamente per colore bacca."""
 
-    def test_moderato_non_raggiungibile_fuori_ondata_di_calore(self, monkeypatch):
-        for scenario in ("normale", "stress_idrico"):
-            tetto = _temp_bacca_max_teorico(scenario, "nero", monkeypatch)
-            assert tetto < SOGLIA_SUNBURN_MODERATO_C, (
-                f"Tetto teorico temperatura_bacca (nero) in '{scenario}' "
-                f"({tetto:.2f}°C) raggiunge la soglia moderata (45°C): "
-                f"non dovrebbe succedere fuori da ondata_di_calore."
-            )
+    def test_moderato_non_raggiungibile_in_normale(self, monkeypatch):
+        tetto = _temp_bacca_max_teorico("normale", "nero", monkeypatch)
+        assert tetto < SOGLIA_SUNBURN_MODERATO_C, (
+            f"Tetto teorico temperatura_bacca (nero) in 'normale' "
+            f"({tetto:.2f}°C) raggiunge la soglia moderata (45°C): "
+            f"non dovrebbe succedere senza un fattore di scenario che lo spieghi."
+        )
+
+    def test_moderato_non_raggiungibile_in_stress_idrico(self, monkeypatch):
+        tetto_nero = _temp_bacca_max_teorico("stress_idrico", "nero", monkeypatch)
+        tetto_bianco = _temp_bacca_max_teorico("stress_idrico", "bianco", monkeypatch)
+        assert tetto_nero < SOGLIA_SUNBURN_MODERATO_C, (
+            f"Tetto teorico temperatura_bacca (nero) in stress_idrico "
+            f"({tetto_nero:.2f}°C) raggiunge la soglia moderata (45°C): "
+            f"la letteratura citata sopra non giustifica un rischio di sunburn "
+            f"elevato dal solo stress idrico."
+        )
+        assert tetto_bianco < SOGLIA_SUNBURN_MODERATO_C, (
+            f"Tetto teorico temperatura_bacca (bianco) in stress_idrico "
+            f"({tetto_bianco:.2f}°C) raggiunge la soglia moderata: stesso motivo "
+            f"del nero sopra."
+        )
 
     def test_moderato_raggiungibile_anche_per_bacca_bianca_in_ondata_di_calore(self, monkeypatch):
         tetto = _temp_bacca_max_teorico("ondata_di_calore", "bianco", monkeypatch)
@@ -199,7 +212,7 @@ class TestTettoTeoricoSunburn:
         entrambi i colori: ~60°C nero, ~55°C bianco con la calibrazione di
         temp_aria tarata sulla soglia severa di RegolaOndataDiCalore (40°C).
         A questo tetto anche il bianco supera la soglia dei 15 minuti
-        (53,79°C) — la Monte Carlo qui sotto mostra che con vento reale
+        (53,79°C); la Monte Carlo qui sotto mostra che con vento reale
         questo non succede quasi mai in pratica."""
         tetto_nero = _temp_bacca_max_teorico("ondata_di_calore", "nero", monkeypatch, velocita_vento=0.0)
         tetto_bianco = _temp_bacca_max_teorico("ondata_di_calore", "bianco", monkeypatch, velocita_vento=0.0)
@@ -211,7 +224,7 @@ class TestTettoTeoricoSunburn:
         ampio di ore di picco (11-17) in ondata di calore, con vento
         generato per davvero (nessun rumore forzato), il nero raggiunge la
         soglia dei 15 minuti in una quota consistente dei casi, il bianco
-        quasi mai — l'asimmetria resta pratica anche se il tetto teorico a
+        quasi mai; l'asimmetria resta pratica anche se il tetto teorico a
         vento nullo non la garantisce più in assoluto."""
         N = 5000
         soglia_15min = SOGLIE_SUNBURN_LETALI_C[15]
@@ -331,8 +344,7 @@ class TestTettoTeoricoUmiditaGoidanich:
 
 class TestGeneraUmiditaAria:
     """genera_umidita_aria(): finora esercitata solo indirettamente tramite
-    il tetto teorico della soglia di Goidanich (sopra) — nessun test
-    verificava le sue proprietà di base indipendentemente da quella soglia."""
+    il tetto teorico della soglia di Goidanich (sopra)."""
 
     def test_range_valido(self, monkeypatch):
         monkeypatch.setattr(random, "uniform", lambda a, b: 0.0)
@@ -710,7 +722,7 @@ class TestBagnatoraFogliareRangeValido:
 
     def test_continuita_ai_confini_veri_fra_ramo_notturno_e_diurno(self, monkeypatch):
         """Copre esattamente il salto che test_transizione_continua_entro_l_ora
-        NON copre: quello fra le 7:59 e le 8:01, e fra le 20:59 e le 21:01 — i
+        NON copre: quello fra le 7:59 e le 8:01, e fra le 20:59 e le 21:01; i
         due istanti in cui il codice passa effettivamente dal ramo notturno
         (ora<=8 o ora>=21) al ramo diurno, non un salto interno allo stesso
         ramo come 8:59/9:00. Con la vecchia soglia fissa (20) il salto era di
@@ -829,7 +841,7 @@ class TestGeneraTemperaturaSuolo:
 
     def test_puo_superare_il_boost_costante_dell_aria_al_centro_del_picco(self, monkeypatch):
         """Nelle ore centrali del picco stretto, l'aggiunta istantanea del
-        suolo supera il boost costante dell'aria — coerente con l'esposizione
+        suolo supera il boost costante dell'aria, coerente con l'esposizione
         diretta al sole di una superficie di terreno nudo, non un difetto:
         se questo test tornasse a fallire, vorrebbe dire che il picco non è
         più abbastanza alto da raggiungere danno_radicale con margine."""

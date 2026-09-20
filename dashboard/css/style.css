@@ -1,37 +1,94 @@
+/* ==========================================================================
+   Sistema di variabili chiaro di default e scuro attivato automaticamente
+   in base all'impostazione del sistema operativo (prefers-color-scheme).
+
+   Ogni regola sotto usa solo le variabili semantiche definite qui (--bg-*,
+   --testo-*, --marchio-*, --gravita-*...): è quello che rende il blocco 
+   @media qui sotto sufficiente da solo per ribaltare l'intero tema, 
+   senza toccare il resto del file.
+   ========================================================================== */
+
 :root {
-  /* Palette colori con accento terroso/ambrato per il contrasto, ispirata al vigneto */
-  --verde-950: #16281a;
-  --verde-800: #1f4a24;
-  --verde-600: #2f7a38;
-  --verde-500: #3f9a4a;
-  --verde-100: #e6f4e8;
+  /* Superfici, dalla più esterna (pagina) alla più interna (elementi annidati
+     dentro un pannello, es. le card KPI o i box di dettaglio regola) */
+  --bg-pagina: #f1efe4;
+  --bg-pannello: #fffdf8;
+  --bg-incassato: #eae6d8;
+  --bordo: #d7d2c0;
+  --bordo-forte: #bfb99f;
 
-  --ambra-600: #c17a2e;
-  --ambra-400: #e0a05a;
-  --ambra-100: #fbf0e0;
+  --testo-primario: #1c1c17;
+  --testo-secondario: #55534a;
+  --testo-attenuato: #8a866f;
 
-  --terracotta-600: #b6553f;
-  --terracotta-100: #fbe9e5;
+  /* Verde: colore di marchio e di azione (bottoni, link, stato "risolta") */
+  --marchio-950: #101d13;
+  --marchio-800: #1e4327;
+  --marchio-600: #2e6b3a;
+  --marchio-500: #3f8a4d;
+  --marchio-tint: #e2ecdd;
+  /* Testo su sfondo verde tenue (badge, link dentro il banner filtro attivo):
+     in chiaro coincide con marchio-800, in scuro va schiarito (v. sotto) -
+     marchio-800 da solo resta invece scuro in entrambi i temi perche' e'
+     usato anche come sfondo pieno sotto testo bianco (hover del bottone
+     filtri), dove schiarirlo comprometterebbe il contrasto opposto. */
+  --marchio-testo-tint: var(--marchio-800);
 
-  --neutro-950: #1a1a17;
-  --neutro-700: #4a4a44;
-  --neutro-500: #78776e;
-  --neutro-300: #d8d5c8;
-  --neutro-100: #f3f1e9;
-  --neutro-0: #ffffff;
+  /* Le due gravità delle allerte, con lo stesso peso visivo di un pannello
+     di controllo industriale: non solo un bordo colorato, anche un
+     indicatore a pallino nella card (v. .alert-header::before) */
+  --gravita-moderato: #a3661f;
+  --gravita-moderato-tint: #f2e6d0;
+  --gravita-severo: #a3402a;
+  --gravita-severo-tint: #f4ddd3;
 
   --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  /* Riservato ai valori di numeri KPI, soglie, timestamp, codici nodo/parcella:
+     non decorativo, allinea le cifre in colonne leggibili a colpo d'occhio,
+     lo stesso principio tipografico degli strumenti di monitoraggio operativo
+     (un readout, non un titolo). */
+  --font-dati: ui-monospace, "SF Mono", "Cascadia Mono", "Roboto Mono", Menlo, Consolas, monospace;
 
-  --raggio-sm: 8px;
-  --raggio-md: 14px;
-  --raggio-lg: 20px;
-  --raggio-pill: 999px;
+  --raggio-sm: 5px;
+  --raggio-md: 8px;
+  --raggio-lg: 12px;
 
-  --ombra-sm: 0 1px 3px rgba(22, 40, 26, 0.06), 0 1px 2px rgba(22, 40, 26, 0.04);
-  --ombra-md: 0 4px 16px rgba(22, 40, 26, 0.08), 0 2px 6px rgba(22, 40, 26, 0.04);
-  --ombra-lg: 0 12px 32px rgba(22, 40, 26, 0.12), 0 4px 10px rgba(22, 40, 26, 0.06);
+  --ombra-sm: 0 1px 2px rgba(16, 20, 12, 0.06);
+  --ombra-md: 0 3px 10px rgba(16, 20, 12, 0.09);
 
-  --transizione: 180ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transizione: 140ms ease;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg-pagina: #131711;
+    --bg-pannello: #1b1e16;
+    --bg-incassato: #23271b;
+    --bordo: rgba(238, 236, 222, 0.1);
+    --bordo-forte: rgba(238, 236, 222, 0.18);
+
+    --testo-primario: #eeece0;
+    --testo-secondario: #b6b3a0;
+    --testo-attenuato: #83806c;
+
+    --marchio-950: #0d1610;
+    --marchio-800: #1e4327;
+    --marchio-600: #4a9c58;
+    --marchio-500: #63b86f;
+    --marchio-tint: rgba(99, 184, 111, 0.14);
+    --marchio-testo-tint: #63b86f;
+
+    --gravita-moderato: #d99a4e;
+    --gravita-moderato-tint: rgba(217, 154, 78, 0.15);
+    --gravita-severo: #dd7057;
+    --gravita-severo-tint: rgba(221, 112, 87, 0.16);
+
+    /* Le ombre morbide pensate per uno sfondo chiaro diventano quasi
+       invisibili o sbagliate su uno scuro: qui la profondità la dà il
+       bordo (già più marcato sopra), non un'ombra. */
+    --ombra-sm: none;
+    --ombra-md: 0 4px 14px rgba(0, 0, 0, 0.35);
+  }
 }
 
 * {
@@ -41,68 +98,80 @@
 body {
   margin: 0;
   font-family: var(--font-sans);
-  background: var(--neutro-100);
-  color: var(--neutro-950);
+  background: var(--bg-pagina);
+  color: var(--testo-primario);
   -webkit-font-smoothing: antialiased;
 }
 
-/* --- Header ------------------------------------------------------------- */
+/* --- Intestazione ---------------------------------------------------------
+   Barra applicativa, non un banner promozionale: un solo colore pieno, una
+   riga di accento come unico dettaglio, nessuna sovrapposizione decorativa. */
 
 .app-header {
-  background: linear-gradient(135deg, var(--verde-950) 0%, var(--verde-800) 55%, var(--verde-600) 100%);
-  color: #fff;
-  padding: 2rem 2.5rem 1.75rem;
-  position: relative;
-  overflow: hidden;
-}
-
-.app-header::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background-image: radial-gradient(circle at 85% 20%, rgba(255, 255, 255, 0.08) 0%, transparent 45%);
-  pointer-events: none;
+  background: var(--marchio-950);
+  color: #f1efe4;
+  padding: 1.1rem 2rem;
+  border-bottom: 2px solid var(--marchio-500);
+  display: flex;
+  /* Non baseline: l'h1 contiene un'icona SVG accanto al testo ed è essa
+     stessa un contenitore flex (v. sotto) - la sua "baseline" agli occhi
+     di questo contenitore esterno dipende da come il browser la calcola
+     per un elemento con contenuto misto, e non coincide in modo affidabile
+     con la baseline del testo del sottotitolo accanto. Centrare sul
+     riquadro, non sul testo, evita l'ambiguità. */
+  align-items: center;
+  gap: 0.9rem;
+  flex-wrap: wrap;
 }
 
 .app-header h1 {
   margin: 0;
-  font-size: 1.9rem;
-  font-weight: 800;
-  letter-spacing: -0.02em;
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
   display: flex;
   align-items: center;
-  gap: 0.6rem;
+  gap: 0.55rem;
+}
+
+.app-header svg {
+  color: var(--marchio-500);
+  flex-shrink: 0;
 }
 
 .subtitle {
-  margin: 0.35rem 0 0.9rem;
-  opacity: 0.82;
-  font-size: 0.95rem;
+  margin: 0;
+  color: #c7c4b3;
+  font-size: 0.82rem;
   font-weight: 500;
 }
 
-/* --- Layout & pannelli --------------------------------------------------- */
+/* --- Struttura e pannelli --------------------------------------------------- */
 
 .layout {
   display: grid;
   grid-template-columns: 1.3fr 1fr;
-  gap: 1.5rem;
-  padding: 1.75rem 2.5rem 2.5rem;
+  gap: 1.1rem;
+  padding: 1.25rem 2rem 2rem;
   max-width: 1600px;
   margin: 0 auto;
 }
 
 .panel {
-  background: var(--neutro-0);
-  border: 1px solid var(--neutro-300);
+  background: var(--bg-pannello);
+  border: 1px solid var(--bordo);
   border-radius: var(--raggio-lg);
-  padding: 1.5rem 1.75rem;
+  padding: 1.3rem 1.5rem;
   box-shadow: var(--ombra-sm);
-  transition: box-shadow var(--transizione);
-}
-
-.panel:hover {
-  box-shadow: var(--ombra-md);
+  /* Come elemento di .layout (CSS grid), un pannello erediterebbe di
+     default una larghezza minima pari al contenuto più largo al suo
+     interno (tipicamente una tabella) - vanificando l'overflow-x:auto di
+     .tabella-scroll sotto, perche' il pannello stesso si allargherebbe
+     prima che quella regola abbia mai occasione di scattare. Azzerarla qui
+     e' cio' che permette a una tabella larga di scorrere nel proprio
+     contenitore invece di spingere l'intera colonna della griglia (e con
+     essa ogni altro pannello) oltre il viewport. */
+  min-width: 0;
 }
 
 .panel-raccomandazione,
@@ -111,35 +180,35 @@ body {
 }
 
 .panel h2 {
-  margin: 0 0 1.1rem;
-  font-size: 1.05rem;
+  margin: 0 0 1rem;
+  font-size: 0.95rem;
   font-weight: 700;
-  letter-spacing: -0.01em;
-  color: var(--verde-950);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--testo-primario);
+  padding-bottom: 0.6rem;
+  border-bottom: 1px solid var(--bordo);
 }
 
 .panel h3 {
-  font-size: 0.88rem;
+  font-size: 0.85rem;
   font-weight: 600;
-  color: var(--neutro-700);
+  color: var(--testo-secondario);
 }
 
-/* Titolo di ogni sotto-categoria del pannello statistiche: un livello sopra i
-   titoli dei singoli grafici (.panel h4 sotto), non sotto lo stesso <h3> che
-   usavano prima insieme - la gerarchia dei tag ora rispecchia quella visiva. */
 .stat-categoria-titolo {
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   font-weight: 700;
-  color: var(--verde-600);
+  color: var(--marchio-600);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin: 0 0 0.75rem;
-  padding-bottom: 0.4rem;
-  border-bottom: 1px solid var(--neutro-300);
+  letter-spacing: 0.06em;
+  margin: 0 0 0.7rem;
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid var(--bordo);
 }
 
 .stat-categoria {
-  margin-bottom: 1.75rem;
+  margin-bottom: 1.6rem;
 }
 
 .stat-categoria:last-child {
@@ -147,67 +216,76 @@ body {
 }
 
 .panel h4 {
-  font-size: 0.88rem;
+  font-size: 0.82rem;
   font-weight: 600;
-  color: var(--neutro-700);
+  color: var(--testo-secondario);
 }
 
 /* --- Filtri --------------------------------------------------------------- */
 
 .filtro-form {
   display: flex;
-  gap: 1rem;
+  gap: 0.9rem;
   align-items: flex-end;
   flex-wrap: wrap;
-  margin-bottom: 1.1rem;
+  margin-bottom: 1rem;
 }
 
 .filtro-form label {
   display: flex;
   flex-direction: column;
-  font-size: 0.78rem;
+  font-size: 0.72rem;
   font-weight: 600;
-  color: var(--neutro-700);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--testo-attenuato);
   gap: 0.3rem;
 }
 
 .filtro-form select {
-  padding: 0.5rem 0.7rem;
-  border: 1.5px solid var(--neutro-300);
+  /* Altezza minima invece di affidarsi al solo padding: 44px e' la soglia
+     comunemente raccomandata per un bersaglio toccabile con un dito, non
+     raggiunta in precedenza (33px effettivi) su un controllo usato anche
+     da tablet/smartphone in campo. */
+  min-height: 44px;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--bordo-forte);
   border-radius: var(--raggio-sm);
   font-family: inherit;
-  font-size: 0.85rem;
-  background: var(--neutro-0);
+  font-size: 0.83rem;
+  background: var(--bg-pannello);
+  color: var(--testo-primario);
   transition: border-color var(--transizione);
 }
 
 .filtro-form select:focus {
   outline: none;
-  border-color: var(--verde-500);
+  border-color: var(--marchio-500);
 }
 
 .filtro-form button {
-  background: var(--verde-600);
+  background: var(--marchio-600);
   color: #fff;
   border: none;
-  padding: 0.6rem 1.2rem;
+  /* Stesso principio della select sopra: 44px minimo invece dei 31px
+     effettivi che dava il solo padding. */
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem 1.1rem;
   border-radius: var(--raggio-sm);
   font-weight: 600;
-  font-size: 0.85rem;
+  font-size: 0.83rem;
   cursor: pointer;
-  transition: background var(--transizione), transform var(--transizione);
+  transition: background var(--transizione);
 }
 
 .filtro-form button:hover {
-  background: var(--verde-800);
-  transform: translateY(-1px);
+  background: var(--marchio-800);
 }
 
-.filtro-form button:active {
-  transform: translateY(0);
-}
-
-/* --- Allerte: header, tab, badge conteggio -------------------------------- */
+/* --- Allerte: intestazione, tab, badge conteggio -------------------------- */
 
 .panel-header {
   display: flex;
@@ -215,69 +293,81 @@ body {
   align-items: baseline;
   flex-wrap: wrap;
   margin-bottom: 0.9rem;
+  padding-bottom: 0.6rem;
+  border-bottom: 1px solid var(--bordo);
 }
 
 .panel-header h2 {
   margin: 0;
+  padding: 0;
+  border: none;
   display: flex;
   align-items: center;
   gap: 0.5rem;
 }
 
 .badge-count {
-  background: var(--ambra-600);
+  background: var(--gravita-moderato);
   color: #fff;
-  border-radius: var(--raggio-pill);
-  padding: 0.15rem 0.65rem;
-  font-size: 0.78rem;
+  border-radius: var(--raggio-sm);
+  padding: 0.1rem 0.5rem;
+  font-size: 0.75rem;
   font-weight: 700;
+  font-family: var(--font-dati);
 }
 
 .last-update {
-  font-size: 0.75rem;
-  color: var(--neutro-500);
+  font-size: 0.72rem;
+  color: var(--testo-attenuato);
   font-weight: 500;
+  font-family: var(--font-dati);
 }
 
 .chart-scope-label {
-  font-size: 0.72rem;
-  color: var(--neutro-500);
+  font-size: 0.7rem;
+  color: var(--testo-attenuato);
   text-align: center;
   margin: 0 0 0.3rem;
 }
 
 .tab-bar {
   display: flex;
-  gap: 0.4rem;
+  gap: 0.2rem;
   margin-bottom: 0.9rem;
-  background: var(--neutro-100);
-  padding: 0.3rem;
-  border-radius: var(--raggio-pill);
-  width: fit-content;
+  border-bottom: 1px solid var(--bordo);
 }
 
 .tab-btn {
   background: none;
   border: none;
-  border-radius: var(--raggio-pill);
-  padding: 0.4rem 1.1rem;
+  border-bottom: 2px solid transparent;
+  /* Stesso principio del bottone e della select sopra: 44px minimo, non i
+     31px effettivi del solo padding. */
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0.45rem 0.2rem;
+  margin-right: 1.1rem;
   font-size: 0.8rem;
   font-weight: 600;
   cursor: pointer;
-  color: var(--neutro-700);
-  transition: background var(--transizione), color var(--transizione);
+  color: var(--testo-attenuato);
+  transition: color var(--transizione), border-color var(--transizione);
+}
+
+.tab-btn:hover {
+  color: var(--testo-primario);
 }
 
 .tab-btn.active {
-  background: var(--verde-600);
-  color: #fff;
-  box-shadow: var(--ombra-sm);
+  color: var(--marchio-600);
+  border-bottom-color: var(--marchio-600);
 }
 
 .allerte-content {
   display: grid;
   grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
-  gap: 1.25rem;
+  gap: 1.1rem;
 }
 
 .chart-wrapper {
@@ -299,12 +389,16 @@ body {
   text-align: center;
 }
 
-/* --- Card allerte ----------------------------------------------------------- */
+/* --- Card allerte -----------------------------------------------------------
+   L'indicatore di gravità è duplicato apposta: il bordo sinistro colorato
+   (leggibile a colpo d'occhio scorrendo l'elenco) e un pallino con la stessa
+   tinta accanto al tipo (leggibile anche da chi non distingue bene i colori,
+   perché accompagnato dal testo del tipo, non da solo). */
 
 .alert-list {
   display: flex;
   flex-direction: column;
-  gap: 0.55rem;
+  gap: 0.45rem;
   max-height: 340px;
   overflow-y: auto;
   padding-right: 0.2rem;
@@ -315,33 +409,31 @@ body {
 }
 
 .alert-list::-webkit-scrollbar-thumb {
-  background: var(--neutro-300);
-  border-radius: var(--raggio-pill);
+  background: var(--bordo-forte);
+  border-radius: var(--raggio-sm);
 }
 
 .alert-card {
-  border: 1px solid var(--neutro-300);
-  border-left: 4px solid var(--ambra-400);
-  border-radius: var(--raggio-md);
-  padding: 0.7rem 0.9rem;
+  border: 1px solid var(--bordo);
+  border-left: 3px solid var(--gravita-moderato);
+  border-radius: var(--raggio-sm);
+  padding: 0.65rem 0.8rem;
   cursor: pointer;
-  background: var(--neutro-0);
-  transition: transform var(--transizione), box-shadow var(--transizione), border-color var(--transizione);
+  background: var(--bg-pannello);
+  transition: background var(--transizione), border-color var(--transizione);
 }
 
 .alert-card:hover {
-  transform: translateX(3px);
-  box-shadow: var(--ombra-sm);
-  border-left-color: var(--ambra-600);
+  background: var(--bg-incassato);
 }
 
 .alert-card.livello-severo {
-  border-left-color: var(--terracotta-600);
+  border-left-color: var(--gravita-severo);
 }
 
 .alert-card.risolta {
-  border-left-color: var(--verde-500);
-  opacity: 0.82;
+  border-left-color: var(--marchio-500);
+  opacity: 0.75;
 }
 
 .alert-header {
@@ -349,41 +441,86 @@ body {
   justify-content: space-between;
   align-items: center;
   font-weight: 700;
-  font-size: 0.88rem;
-  color: var(--neutro-950);
+  font-size: 0.85rem;
+  color: var(--testo-primario);
+}
+
+.alert-header::before {
+  content: '';
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  /* Il colore di gravità vive sulla card (.livello-severo/.risolta), non
+     sull'header: il pallino lo riprende esplicitamente qui invece di usare
+     currentColor, che avrebbe preso il colore neutro del testo. */
+  background: var(--gravita-moderato);
+  margin-right: 0.45rem;
+  flex-shrink: 0;
+}
+
+.alert-card.livello-severo .alert-header::before {
+  background: var(--gravita-severo);
+}
+
+.alert-card.risolta .alert-header::before {
+  background: var(--marchio-500);
 }
 
 .alert-body {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
-  font-size: 0.78rem;
-  color: var(--neutro-500);
+  column-gap: 0.6rem;
+  row-gap: 0.1rem;
+  font-size: 0.75rem;
+  color: var(--testo-attenuato);
+  font-family: var(--font-dati);
   margin-top: 0.3rem;
 }
 
+/* Il monospazio di --font-dati occupa più larghezza del sans-serif usato
+   prima: "parcellaX · nodo-Y1" e la data possono non stare più entrambi
+   sulla stessa riga di una card stretta. Senza questa regola il browser
+   spezzerebbe "nodo-Y1" a metà parola al trattino (un normale punto di
+   interruzione per il testo, non un difetto del font): con nowrap ogni
+   campo resta intero e, se non c'è posto, scende per intero a capo grazie
+   a flex-wrap sopra, invece di spezzarsi al proprio interno.
+   */
+.alert-body span {
+  white-space: nowrap;
+}
+
 .alert-risolta-info {
-  font-size: 0.72rem;
-  color: var(--verde-600);
+  font-size: 0.7rem;
+  color: var(--marchio-600);
+  margin-top: 0.35rem;
+  font-weight: 600;
+}
+
+.alert-pianificata-info {
+  font-size: 0.7rem;
+  color: var(--gravita-moderato);
   margin-top: 0.35rem;
   font-weight: 600;
 }
 
 .filtro-attivo {
-  background: var(--ambra-100);
+  background: var(--gravita-moderato-tint);
   border-radius: var(--raggio-sm);
-  padding: 0.5rem 0.75rem;
-  font-size: 0.8rem;
+  padding: 0.45rem 0.7rem;
+  font-size: 0.78rem;
   margin-bottom: 0.5rem;
-  color: var(--neutro-700);
+  color: var(--testo-secondario);
 }
 
 .filtro-attivo button {
   background: none;
   border: none;
-  color: var(--verde-800);
+  color: var(--marchio-testo-tint);
   text-decoration: underline;
   cursor: pointer;
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   padding: 0;
   font-weight: 600;
 }
@@ -394,8 +531,8 @@ body {
   align-items: center;
   gap: 0.4rem;
   margin-top: 0.7rem;
-  font-size: 0.78rem;
-  color: var(--neutro-500);
+  font-size: 0.76rem;
+  color: var(--testo-attenuato);
 }
 
 .paginazione-bottoni {
@@ -406,10 +543,15 @@ body {
 }
 
 .paginazione button {
-  background: var(--neutro-0);
-  border: 1.5px solid var(--neutro-300);
+  background: var(--bg-pannello);
+  border: 1px solid var(--bordo-forte);
   border-radius: var(--raggio-sm);
-  padding: 0.3rem 0.7rem;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.3rem 0.65rem;
+  color: var(--testo-primario);
   cursor: pointer;
   font-weight: 600;
   white-space: nowrap;
@@ -418,7 +560,7 @@ body {
 }
 
 .paginazione button:hover:not(:disabled) {
-  border-color: var(--verde-500);
+  border-color: var(--marchio-500);
 }
 
 .paginazione button:disabled {
@@ -428,57 +570,58 @@ body {
 
 .paginazione-info {
   text-align: center;
+  font-family: var(--font-dati);
 }
 
 /* --- Stati vuoti / errore / badge generici ---------------------------------- */
 
 .empty-state {
-  color: var(--neutro-500);
-  font-size: 0.88rem;
+  color: var(--testo-attenuato);
+  font-size: 0.85rem;
   padding: 0.4rem 0;
 }
 
 .error-text {
-  color: var(--terracotta-600);
-  font-size: 0.82rem;
+  color: var(--gravita-severo);
+  font-size: 0.8rem;
   min-height: 1em;
   font-weight: 500;
 }
 
 .badge {
   display: inline-block;
-  padding: 0.25rem 0.7rem;
-  border-radius: var(--raggio-pill);
-  font-size: 0.72rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: var(--raggio-sm);
+  font-size: 0.7rem;
   font-weight: 700;
   margin: 0.5rem 0;
 }
 
 .badge-eseguita {
-  background: var(--verde-100);
-  color: var(--verde-800);
+  background: var(--marchio-tint);
+  color: var(--marchio-testo-tint);
 }
 
 .badge-teorica {
-  background: var(--ambra-100);
-  color: var(--ambra-600);
+  background: var(--gravita-moderato-tint);
+  color: var(--gravita-moderato);
 }
 
 .badge-risolta {
-  background: var(--verde-100);
-  color: var(--verde-800);
-  padding: 0.1rem 0.5rem;
-  font-size: 0.65rem;
+  background: var(--marchio-tint);
+  color: var(--marchio-testo-tint);
+  padding: 0.08rem 0.4rem;
+  font-size: 0.62rem;
 }
 
 .badge-attivo {
-  background: var(--verde-100);
-  color: var(--verde-800);
+  background: var(--marchio-tint);
+  color: var(--marchio-testo-tint);
 }
 
 .badge-inattivo {
-  background: var(--neutro-100);
-  color: var(--neutro-500);
+  background: var(--bg-incassato);
+  color: var(--testo-attenuato);
 }
 
 .nodi-dettaglio {
@@ -487,9 +630,9 @@ body {
 
 .nodi-dettaglio summary {
   cursor: pointer;
-  font-size: 0.85rem;
+  font-size: 0.82rem;
   font-weight: 600;
-  color: var(--neutro-700);
+  color: var(--testo-secondario);
   padding: 0.3rem 0;
 }
 
@@ -502,55 +645,53 @@ body {
 }
 
 .hint {
-  font-size: 0.86rem;
-  color: var(--neutro-500);
+  font-size: 0.84rem;
+  color: var(--testo-attenuato);
 }
 
 .dettaglio-allerta {
-  background: var(--neutro-100);
+  background: var(--bg-incassato);
   border-radius: var(--raggio-sm);
-  padding: 0.7rem 0.9rem;
-  font-size: 0.85rem;
+  padding: 0.65rem 0.85rem;
+  font-size: 0.83rem;
   margin: 0.6rem 0;
   line-height: 1.5;
 }
 
-/* --- Statistiche / KPI -------------------------------------------------------- */
+/* --- Statistiche / KPI -------------------------------------------------------
+   Non più una card "vetrina": un riquadro compatto con il valore in
+   monospazio, in linea con la lettura rapida che serve durante l'uso reale
+   (un valore che cambia ogni pochi secondi va letto, non ammirato). */
 
 .kpi-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-  gap: 1rem;
-  margin-bottom: 1.5rem;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.7rem;
+  margin-bottom: 1.4rem;
 }
 
 .kpi-card {
-  background: linear-gradient(160deg, var(--neutro-0) 0%, var(--neutro-100) 100%);
-  border: 1px solid var(--neutro-300);
-  border-radius: var(--raggio-md);
-  padding: 1.1rem 0.9rem;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  transition: transform var(--transizione), box-shadow var(--transizione);
-}
-
-.kpi-card:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--ombra-md);
+  background: var(--bg-incassato);
+  border: 1px solid var(--bordo);
+  border-left: 3px solid var(--marchio-600);
+  border-radius: var(--raggio-sm);
+  padding: 0.8rem 0.9rem;
 }
 
 .kpi-valore {
-  font-size: 2rem;
-  font-weight: 800;
-  color: var(--verde-800);
-  letter-spacing: -0.02em;
+  display: block;
+  font-family: var(--font-dati);
+  font-size: 1.55rem;
+  font-weight: 700;
+  color: var(--testo-primario);
+  letter-spacing: -0.01em;
+  line-height: 1.15;
 }
 
 .kpi-etichetta {
-  font-size: 0.72rem;
-  color: var(--neutro-500);
+  display: block;
+  font-size: 0.68rem;
+  color: var(--testo-attenuato);
   margin-top: 0.3rem;
   font-weight: 600;
   text-transform: uppercase;
@@ -560,57 +701,28 @@ body {
 .stat-charts {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 1.5rem;
+  gap: 1.3rem;
 }
 
-/* --- Footer ------------------------------------------------------------------ */
-
-.app-footer {
-  text-align: center;
-  font-size: 0.78rem;
-  color: var(--neutro-500);
-  padding: 1.5rem;
-}
-
-@media (max-width: 900px) {
-  .layout {
-    grid-template-columns: 1fr;
-    padding: 1.25rem;
-  }
-
-  .allerte-content {
-    grid-template-columns: 1fr;
-  }
-
-  .stat-charts {
-    grid-template-columns: 1fr;
-  }
-}
-
-.alert-pianificata-info {
-  font-size: 0.72rem;
-  color: var(--ambra-600);
-  margin-top: 0.35rem;
-  font-weight: 600;
-}
+/* --- Dettaglio regola, soglie, azioni alternative --------------------------- */
 
 .dettaglio-regola {
-  background: var(--verde-100);
+  background: var(--marchio-tint);
   border-radius: var(--raggio-sm);
-  padding: 0.7rem 0.9rem;
-  font-size: 0.85rem;
+  padding: 0.65rem 0.85rem;
+  font-size: 0.83rem;
   margin: 0.6rem 0;
   line-height: 1.5;
 }
 
 .azioni-alternative {
-  margin-top: 1.25rem;
+  margin-top: 1.2rem;
 }
 
 .azioni-alternative h4 {
-  font-size: 0.9rem;
+  font-size: 0.88rem;
   margin: 0 0 0.4rem;
-  color: var(--verde-950);
+  color: var(--testo-primario);
 }
 
 .azioni-alternative .hint {
@@ -619,38 +731,38 @@ body {
 }
 
 .azione-alternativa {
-  border: 1px solid var(--neutro-300);
+  border: 1px solid var(--bordo);
   border-radius: var(--raggio-sm);
-  padding: 0.7rem 0.9rem;
-  margin-bottom: 0.6rem;
-  font-size: 0.85rem;
+  padding: 0.65rem 0.85rem;
+  margin-bottom: 0.55rem;
+  font-size: 0.83rem;
 }
 
 .azione-alternativa.azione-corrente {
-  border-color: var(--verde-500);
-  background: var(--verde-100);
+  border-color: var(--marchio-500);
+  background: var(--marchio-tint);
 }
 
 .azione-nota {
   margin: 0.3rem 0 0;
-  color: var(--neutro-700);
+  color: var(--testo-secondario);
 }
 
 .azione-fonte {
   margin: 0.3rem 0 0;
-  color: var(--neutro-500);
-  font-size: 0.78rem;
+  color: var(--testo-attenuato);
+  font-size: 0.76rem;
   font-style: italic;
 }
 
 .badge-corrente {
   display: inline-block;
   margin-left: 0.5rem;
-  background: var(--verde-600);
+  background: var(--marchio-600);
   color: #fff;
-  padding: 0.1rem 0.5rem;
-  border-radius: var(--raggio-pill);
-  font-size: 0.65rem;
+  padding: 0.08rem 0.45rem;
+  border-radius: var(--raggio-sm);
+  font-size: 0.62rem;
 }
 
 .soglie-regola {
@@ -658,34 +770,51 @@ body {
 }
 
 .soglie-regola h4 {
-  font-size: 0.85rem;
+  font-size: 0.83rem;
   margin: 0 0 0.4rem;
-  color: var(--verde-950);
+  color: var(--testo-primario);
+}
+
+/* La tabella non si adatta comprimendo le colonne: sotto ~390px di
+   viewport le cinque colonne, con la loro larghezza naturale, superano lo
+   spazio disponibile. Senza questo contenitore lo sforamento si
+   propagherebbe all'intera pagina (la colonna della griglia si allarga per
+   contenerlo), non solo alla tabella: qui invece resta la tabella sola a
+   scorrere in orizzontale, il pattern standard per una tabella dati su
+   schermo stretto. */
+.tabella-scroll {
+  overflow-x: auto;
 }
 
 .tabella-soglie {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.8rem;
+  font-size: 0.78rem;
 }
 
 .tabella-soglie th,
 .tabella-soglie td {
-  border: 1px solid var(--neutro-300);
-  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--bordo);
+  padding: 0.4rem 0.55rem;
   text-align: left;
 }
 
+.tabella-soglie td {
+  font-family: var(--font-dati);
+  color: var(--testo-secondario);
+}
+
 .tabella-soglie th {
-  background: var(--neutro-100);
+  background: var(--bg-incassato);
   font-weight: 700;
-  color: var(--neutro-700);
+  color: var(--testo-secondario);
+  font-family: var(--font-sans);
 }
 
 .livello-inline {
-  font-size: 0.75rem;
+  font-size: 0.74rem;
   font-weight: 600;
-  color: var(--neutro-500);
+  color: var(--testo-attenuato);
   text-transform: capitalize;
 }
 
@@ -703,9 +832,35 @@ body {
 }
 
 .filtri-risolte select {
+  min-height: 44px;
   padding: 0.3rem 0.5rem;
-  border: 1.5px solid var(--neutro-300);
+  border: 1px solid var(--bordo-forte);
   border-radius: var(--raggio-sm);
-  font-size: 0.78rem;
-  background: var(--neutro-0);
+  font-size: 0.76rem;
+  background: var(--bg-pannello);
+  color: var(--testo-primario);
+}
+
+/* --- Piè di pagina ------------------------------------------------------------ */
+
+.app-footer {
+  text-align: center;
+  font-size: 0.76rem;
+  color: var(--testo-attenuato);
+  padding: 1.4rem;
+}
+
+@media (max-width: 900px) {
+  .layout {
+    grid-template-columns: 1fr;
+    padding: 1rem;
+  }
+
+  .allerte-content {
+    grid-template-columns: 1fr;
+  }
+
+  .stat-charts {
+    grid-template-columns: 1fr;
+  }
 }

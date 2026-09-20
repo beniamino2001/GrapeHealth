@@ -7,7 +7,7 @@ import it.pegasopw.grapehealth.decisionengine.stato.StatoRischio;
 import java.util.Optional;
 
 /**
- * Contratto comune alle sette regole di rischio del decision engine (stress
+ * Interfaccia comune alle sette regole di rischio del decision engine (stress
  * idrico, ondata di calore, tre dieci, sunburn, svernamento delle oospore,
  * infezione secondaria, danno radicale). Ogni implementazione
  * osserva un parametro specifico (psi_stem, temperatura_aria, ecc.) e decide
@@ -21,8 +21,8 @@ public interface RegolaRischio {
      * Indica se questa regola osserva il parametro della misurazione data.
      * Ogni implementazione la invoca all'inizio del proprio valuta() come
      * guardia d'ingresso: non è pensata per essere chiamata dall'esterno
-     * (il chiamante — MisurazioneListener — passa ogni misurazione a tutte
-     * le regole indistintamente, lasciando a ciascuna la decisione).
+     * [il chiamante (MisurazioneListener) passa ogni misurazione a tutte
+     * le regole indistintamente, lasciando a ciascuna la decisione].
      */
     boolean isApplicabile(MisurazioneMessage misurazione);
 

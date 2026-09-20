@@ -34,7 +34,7 @@ public class AllertaEntity {
 
     // Vera FK verso regola(codice). Il campo Java segue il nome della colonna;
     // il nome esposto in AllertaDTO resta invece "regolaScatenante" per
-    // continuita' con la dashboard, gia' scritta contro quel contratto (v.
+    // continuita' con la dashboard, gia' scritta contro quell'interfaccia (v.
     // AllertaMapper).
     @Column(name = "regola_codice", nullable = false)
     private String regolaCodice;

@@ -99,11 +99,7 @@ public class RabbitConfig {
         SimpleMessageListenerContainer container = new SimpleMessageListenerContainer(connectionFactory);
         container.setQueueNames(INPUT_QUEUE);
         container.setMessageListener(misurazioneListener);
-        container.setPrefetchCount(10); // coerente con quanto definito precedentemente in application.yaml
-        // Nessun retry volutamente: un JSON malformato è un fallimento
-        // permanente, non transitorio e ritentarlo non lo risolverebbe,
-        // quindi va in dead-letter al primo fallimento invece di essere
-        // ritentato a vuoto. Stesso principio già applicato in persistence.
+        container.setPrefetchCount(10);
         container.setDefaultRequeueRejected(false);
         return container;
     }

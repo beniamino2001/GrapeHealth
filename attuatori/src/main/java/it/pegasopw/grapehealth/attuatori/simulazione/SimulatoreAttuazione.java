@@ -56,9 +56,7 @@ public class SimulatoreAttuazione {
 
             // Nessuna delle due regole ha un'azione catalogata in regola_azione
             // (v. MappatoreAzione in persistence, stesso motivo): restano solo
-            // segnali di monitoraggio, loggati comunque per completare l'audit
-            // trail. Entrambe a soglia singola nel decision engine attuale (solo
-            // "moderato"), quindi la rete di sicurezza sotto resta attiva.
+            // segnali di monitoraggio.
             case SVERNAMENTO_OOSPORE, INFEZIONE_SECONDARIA -> {
                 avvisaSeSeveroInatteso(tipo, evento.livelloRischio());
                 yield NESSUNA_AZIONE_CATALOGATA;
@@ -80,7 +78,7 @@ public class SimulatoreAttuazione {
         };
     }
 
-    // Rete di sicurezza per i tipi che, secondo il decision engine attuale,
+    // Log di sicurezza per i tipi che, secondo il decision engine attuale,
     // non dovrebbero mai produrre un livello "severo".
     private void avvisaSeSeveroInatteso(String tipo, String livello) {
         if (SEVERO.equals(livello)) {

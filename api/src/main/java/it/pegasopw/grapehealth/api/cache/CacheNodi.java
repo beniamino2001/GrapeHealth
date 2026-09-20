@@ -13,15 +13,12 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 // Stesso pattern di CacheNodi in persistence: i dodici nodi sono fissi per l'intera sessione
-// simulata, caricati una sola volta all'avvio invece che con una query per richiesta.
-// A differenza della versione in persistence (che risolve solo codice->id per scrivere
-// una FK), qui serve anche l'entita' completa in lettura, piu' l'indice inverso
-// parcella->nodi per il filtro di /api/misurazioni.
-
-// Tabella di riferimento fissa per l'intera sessione simulata: caricata una sola volta
-// all'avvio invece di essere interrogata a ogni richiesta. ConcurrentHashMap invece di
-// HashMap perche' le mappe sono lette concorrentemente da piu' richieste HTTP mentre vengono
-// popolate in carica(); nessuna scrittura avviene dopo l'avvio.
+// simulata, caricati una sola volta all'avvio invece che con una query per richiesta. A
+// differenza della versione in persistence (che risolve solo codice->id per scrivere una
+// FK), qui serve anche l'entita' completa in lettura, piu' l'indice inverso parcella->nodi
+// per il filtro di /api/misurazioni. ConcurrentHashMap invece di HashMap perche' le mappe
+// sono lette concorrentemente da piu' richieste HTTP mentre vengono popolate in carica();
+// nessuna scrittura avviene dopo l'avvio.
 @Component
 public class CacheNodi {
 

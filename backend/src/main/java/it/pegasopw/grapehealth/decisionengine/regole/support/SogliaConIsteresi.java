@@ -5,7 +5,7 @@ package it.pegasopw.grapehealth.decisionengine.regole.support;
  * una grandezza a soglia fissa, con isteresi in uscita: una volta superata
  * una soglia, il rientro al livello inferiore richiede di scendere oltre la
  * soglia meno il margine di isteresi, non di sfiorarla appena. Introdotta per
- * evitare il "chattering" — decine di allerte ravvicinate causate dal rumore
+ * evitare il "chattering", ovvero decine di allerte ravvicinate causate dal rumore
  * di misura che oscilla di pochi centesimi attorno a una soglia esatta.
  */
 public class SogliaConIsteresi {

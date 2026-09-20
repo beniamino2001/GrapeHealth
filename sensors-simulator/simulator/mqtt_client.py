@@ -54,7 +54,7 @@ class GrapeHealthMqttClient:
 
         # Se RABBITMQ_USER/RABBITMQ_PASS non sono nell'ambiente, interrompe
         # subito con un messaggio esplicativo invece di connettersi in
-        # silenzio con una credenziale condivisa in chiaro — stesso principio
+        # silenzio con una credenziale condivisa in chiaro; stesso principio
         # già applicato a POSTGRES_USER/POSTGRES_PASSWORD in init_nodi_db.py.
         try:
             utente = os.environ["RABBITMQ_USER"]
@@ -74,7 +74,7 @@ class GrapeHealthMqttClient:
         # Il listener MQTT in chiaro di RabbitMQ è disattivato (mqtt.listeners.tcp
         # = none in rabbitmq.conf): senza tls_set() qui, connect() fallirebbe
         # sempre, non solo in modo insicuro. ca_certs verifica il certificato del
-        # broker contro la stessa CA locale che l'ha firmato — non una cifratura
+        # broker contro la stessa CA locale che l'ha firmato, non una cifratura
         # "e basta" che accetterebbe qualunque certificato presentato.
         self.client.tls_set(ca_certs=str(CA_CERT_PATH))
         self.client.will_set(self._status_topic, payload="offline", qos=1, retain=True)
@@ -131,12 +131,7 @@ class GrapeHealthMqttClient:
         collega dopo l'ultima pubblicazione su un topic (es. MQTT Explorer
         durante un debug, o un futuro consumatore MQTT diretto) riceve
         subito l'ultimo valore noto, invece di aspettare fino al prossimo
-        ciclo di pubblicazione. Non cambia nulla per i consumatori AMQP
-        attuali (decisionengine, persistence): leggono da una coda già
-        collegata all'exchange tramite binding permanente, non da una
-        subscribe MQTT nativa — il meccanismo di retain di RabbitMQ
-        riguarda solo quest'ultima.
-
+        ciclo di pubblicazione.
         Riprova fino a MAX_TENTATIVI_PUBLISH volte su un fallimento locale
         (es. coda di invio piena, client non ancora connesso): copre i casi
         transitori più comuni senza bisogno di un buffer persistente su
@@ -146,14 +141,23 @@ class GrapeHealthMqttClient:
         visibile e mai indistinguibile da un singolo blip transitorio."""
         for tentativo in range(1, MAX_TENTATIVI_PUBLISH + 1):
             result = self.client.publish(topic, payload, qos=qos, retain=True)
-            if result.rc == mqtt.MQTT_ERR_SUCCESS:
+            confermata = result.rc == mqtt.MQTT_ERR_SUCCESS
+            if confermata and qos > 0:
+                result.wait_for_publish(timeout=RITARDO_TENTATIVO_PUBLISH_SECONDI)
+                confermata = result.is_published()
+            if confermata:
                 return
             if tentativo < MAX_TENTATIVI_PUBLISH:
                 logger.warning(
-                    "Publish fallita su %s (rc=%s), tentativo %d/%d, nuovo tentativo fra %.1fs",
+                    "Publish su %s non confermata (rc=%s), tentativo %d/%d, nuovo tentativo fra %.1fs",
                     topic, result.rc, tentativo, MAX_TENTATIVI_PUBLISH, RITARDO_TENTATIVO_PUBLISH_SECONDI,
                 )
-                time.sleep(RITARDO_TENTATIVO_PUBLISH_SECONDI)
+                if result.rc != mqtt.MQTT_ERR_SUCCESS:
+                    # accodamento fallito subito: wait_for_publish() non è stata
+                    # chiamata, quindi l'attesa va fatta qui esplicitamente. Se
+                    # invece l'accodamento era riuscito ma la conferma non è
+                    # arrivata, wait_for_publish() ha già atteso il tempo dovuto.
+                    time.sleep(RITARDO_TENTATIVO_PUBLISH_SECONDI)
         logger.error(
             "Publish fallita su %s dopo %d tentativi (ultimo rc=%s): lettura persa.",
             topic, MAX_TENTATIVI_PUBLISH, result.rc,

@@ -39,9 +39,9 @@ class AllertaDeadLetterTest {
 
     // AllertaEvent non ha vincoli di validazione sui propri campi (nessun
     // @NotNull): un tipo nullo viola il vincolo NOT NULL di allerta.regola_codice
-    // al primo allertaRepository.save(...) — lo stesso punto di fallimento già
+    // al primo allertaRepository.save(...) [lo stesso punto di fallimento già
     // verificato sopra per un tipo non riconosciuto, dato che regola_codice è
-    // una FK e non ammette NULL — gestito dallo stesso meccanismo generico di
+    // una FK e non ammette NULL] gestito dallo stesso meccanismo generico di
     // retry/dead-letter, non da un controllo scritto apposta per questo caso.
     @Test
     void unTipoNulloFinisceNellaCodaDiDeadLetter() {

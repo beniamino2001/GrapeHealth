@@ -107,7 +107,7 @@ class RegolaOndataDiCaloreTest {
         regola.valuta(misurazioneTemperaturaAria(36.0), stato);
         regola.valuta(misurazioneTemperaturaAria(40.1), stato); // severo
 
-        // 38.5: sotto isteresi severo (39) ma ancora sopra moderato — torna a moderato
+        // 38.5: sotto isteresi severo (39) ma ancora sopra moderato, torna a moderato
         var rientroModerato = regola.valuta(misurazioneTemperaturaAria(38.5), stato);
         assertTrue(rientroModerato.isPresent());
         assertEquals("moderato", rientroModerato.get().livelloRischio());

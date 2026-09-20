@@ -7,6 +7,22 @@ spring:
     username: ${RABBITMQ_USER}
     password: ${RABBITMQ_PASS}
     virtual-host: /
+    # Conferme e ritorni del publisher: senza questi, un'allerta che il broker
+    # non riesce ad accettare o a instradare sparisce senza che l'applicazione
+    # se ne accorga. correlated abilita ConfirmCallback in AllertaPublisher.
+    publisher-confirm-type: correlated
+    publisher-returns: true
+    template:
+      # Retry trasparente sulla singola chiamata a convertAndSend(): assorbe
+      # un blip di connessione transitorio prima ancora che l'eccezione arrivi
+      # ad AllertaPublisher, senza dover far ripescare l'intero messaggio in
+      # ingresso.
+      retry:
+        enabled: true
+        initial-interval: 500
+        multiplier: 2
+        max-attempts: 3
+        max-interval: 5000
   datasource:
     url: jdbc:postgresql://${PG_HOST:localhost}:${PG_PORT:5432}/${POSTGRES_DB}?sslmode=${POSTGRES_SSL_MODE:verify-full}&sslrootcert=${PG_SSL_ROOT_CERT}
     username: ${POSTGRES_USER}

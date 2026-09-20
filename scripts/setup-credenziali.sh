@@ -7,8 +7,7 @@
 #
 # Cosa fa:
 #   1. genera tre password casuali forti (openssl rand): PostgreSQL, RabbitMQ e il keystore
-#      Java usato per il TLS (letta da scripts/genera-certificati-tls.sh, non generata qui —
-#      quello script va eseguito dopo questo, non prima);
+#      Java usato per il TLS (letta da scripts/genera-certificati-tls.sh, non generata qui);
 #   2. scrive secrets/postgres_user.txt e secrets/postgres_password.txt,
 #      letti dal container Postgres tramite Docker secrets (POSTGRES_*_FILE);
 #   3. genera infra/rabbitmq/definitions.json con l'utente amministrativo di RabbitMQ
@@ -16,17 +15,13 @@
 #      artigianale dell'algoritmo), caricato al boot da management.load_definitions;
 #   4. copia .env.example in .env sostituendo i placeholder con le credenziali generate,
 #      letto dalle app Spring Boot locali deployate sulle relative istanze Tomcat tramite 
-#      setenv.sh per autenticarsi come client AMQP/JDBC — le password restano comunque 
+#      setenv.sh per autenticarsi come client AMQP/JDBC e le password restano comunque 
 #      necessarie in chiaro lì, perché un client deve sempre presentare la credenziale reale per autenticarsi;
 #   5. verifica automaticamente, rileggendo dal disco (non dalle variabili già in memoria),
 #      che i quattro artefatti generati siano coerenti con quanto appena scritto: si
 #      interrompe con un errore esplicito al primo controllo che non torna, invece di
 #      stampare comunque un messaggio di successo.
 #
-# Scritto in POSIX sh puro (nessun [[ ]], nessun array, nessun set -o pipefail): questo
-# repository lancia i propri script con "sh nomefile.sh", che su Linux e WSL esegue con
-# dash, una shell che non capisce la sintassi bash — su macOS funziona comunque, perché
-# li' /bin/sh e' in realta' un binario bash invocato con un altro nome.
 set -eu
 cd "$(dirname "$0")/.."
 
@@ -249,5 +244,5 @@ TLS_KEYSTORE_PASSWORD, entrambi disallineati da quelle appena rigenerate.
 
 Prossimo passo: sh scripts/genera-certificati-tls.sh
 (genera la CA locale e i certificati per postgres/rabbitmq/tomcat, leggendo la password
-appena scritta sopra in TLS_KEYSTORE_PASSWORD — poi puoi lanciare docker compose up -d)
+appena scritta sopra in TLS_KEYSTORE_PASSWORD - poi puoi lanciare docker compose up -d)
 MSG

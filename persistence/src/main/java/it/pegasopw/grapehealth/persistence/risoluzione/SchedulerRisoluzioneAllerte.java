@@ -64,7 +64,7 @@ public class SchedulerRisoluzioneAllerte {
     // scadenza pianificata: usata da AllertaPersistenceListener quando il
     // livello di rischio per lo stesso nodo/tipo cambia (es. moderato a
     // severo) prima che l'allerta al livello precedente si sia risolta da
-    // sola - la condizione è cambiata, non ha senso lasciarla scaduta in
+    // sola; la condizione è cambiata, non ha senso lasciarla scaduta in
     // parallelo alla nuova. Rimuove anche l'eventuale scadenza pendente in
     // memoria, altrimenti il prossimo sweep di risolviScadute() la
     // ririsolverebbe inutilmente, sovrascrivendo risolta_il con un
@@ -73,7 +73,14 @@ public class SchedulerRisoluzioneAllerte {
     public void risolviOra(AllertaEntity allerta) {
         scadenzePerAllerta.remove(allerta.getId());
         allerta.risolvi(Instant.now());
-        allertaRepository.save(allerta);
+        // saveAndFlush, non save: l'UPDATE deve raggiungere il database
+        // prima che il chiamante prosegua a inserire la nuova allerta nella
+        // stessa transazione, altrimenti Hibernate (che raggruppa sempre
+        // gli INSERT prima degli UPDATE nella coda di flush a prescindere
+        // dall'ordine di chiamata) manderebbe l'INSERT mentre questa riga
+        // risulta ancora 'attiva' agli occhi del database, violando
+        // idx_allerta_attiva_unica anche in assenza di qualunque concorrenza.
+        allertaRepository.saveAndFlush(allerta);
         log.info("Allerta risolta anticipatamente: id={}, risoltaIl={}", allerta.getId(), allerta.getRisoltaIl());
     }
 

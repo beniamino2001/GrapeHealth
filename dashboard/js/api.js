@@ -70,7 +70,7 @@ const GrapeHealthAPI = {
 
 // Funzione utile a formattare una durata in ms in una stringa leggibile, con granularità decrescente (ore > minuti > secondi).
 function formattaDurata(ms) {
-  if (!Number.isFinite(ms) || ms < 0) return '—';
+  if (!Number.isFinite(ms) || ms < 0) return '-';
   const totaleSecondi = Math.round(ms / 1000);
   const minuti = Math.floor(totaleSecondi / 60);
   const secondi = totaleSecondi % 60;
@@ -85,7 +85,7 @@ function formattaDurata(ms) {
 // non un modulo: `module` non esiste in quel contesto, quindi il blocco
 // sottostante non viene mai eseguito e non cambia in alcun modo il
 // comportamento della pagina. `global.formattaDurata` replica per i test ciò
-// che nel browser è già vero per costruzione — tutti gli script condividono
+// che nel browser è già vero per costruzione e tutti gli script condividono
 // `window` come scope globale, quindi alerts.js può chiamare formattaDurata()
 // senza importarla esplicitamente; in Node, dove ogni file richiesto ha un
 // proprio scope isolato, questa riga è ciò che rende visibile la stessa cosa.

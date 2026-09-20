@@ -117,6 +117,8 @@ public class RabbitConfig {
         SimpleMessageListenerContainer container = new SimpleMessageListenerContainer(connectionFactory);
         container.setQueueNames(MISURAZIONI_QUEUE);
         container.setMessageListener(misurazionePersistenceListener);
+        container.setConcurrentConsumers(3);
+        container.setMaxConcurrentConsumers(5);
         container.setPrefetchCount(50);
         // Questo container è cablato a mano, non passa dalla container factory
         // autoconfigurata da Spring Boot: le proprietà

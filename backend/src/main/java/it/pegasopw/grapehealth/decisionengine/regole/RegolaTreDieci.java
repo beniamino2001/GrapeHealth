@@ -15,23 +15,23 @@ import java.util.Optional;
  * Rischio di infezione primaria da peronospora (Plasmopara viticola), unica
  * regola del modulo a combinare due modelli bibliografici in cascata:
  *
- * 1) Trigger di Baldacci ("regola dei tre dieci") — livello "moderato".
+ * 1) Trigger di Baldacci ("regola dei tre dieci") a livello "moderato".
  *    Condizione di infezione primaria verificata quando temperatura, pioggia
  *    cumulata e lunghezza del germoglio superano contemporaneamente 10 (in
  *    gradi, millimetri e centimetri rispettivamente), soglie e durata della
  *    finestra pioggia lette a runtime da regola_soglia.
  *
- * 2) Incubazione di Goidanich — livello "severo". Una volta scattato il
+ * 2) Incubazione di Goidanich a livello "severo". Una volta scattato il
  *    trigger di Baldacci, la percentuale di sviluppo dell'incubazione viene
  *    stimata giorno per giorno da CacheTabellaGoidanich, in funzione della
  *    temperatura e dell'umidità medie del giorno appena concluso, finché non
  *    raggiunge la soglia di trattamento (70%, bibliografia: intervallo 70-80%,
- *    estremo più cautelativo) — questo valore non ha una riga in regola_soglia,
+ *    estremo più cautelativo) che non ha una riga in regola_soglia,
  *    appartiene al modello di Goidanich (CacheTabellaGoidanich), non a una
  *    condizione di soglia della regola dei tre dieci: resta costante Java. Le
  *    due fasi sono deliberatamente disaccoppiate: l'incubazione, una volta
  *    innescata, procede anche se la pioggia che l'ha originata è nel
- *    frattempo uscita dalla finestra — la domanda "è appena avvenuta
+ *    frattempo uscita dalla finestra; la domanda "è appena avvenuta
  *    un'infezione?" e la domanda "quanto è avanzata l'incubazione di
  *    un'infezione già avvenuta?" sono indipendenti.
  */
@@ -163,7 +163,7 @@ public class RegolaTreDieci implements RegolaRischio {
 
     private String messaggioBaldacci(String parcella, double temperatura, double pioggia, double germogli) {
         return ("Condizioni dei \"tre dieci\" verificate su %s: temperatura %.1f°C, " +
-                "pioggia cumulata %.1f mm nelle ultime %d ore, germogli a %.0f cm — " +
+                "pioggia cumulata %.1f mm nelle ultime %d ore, germogli a %.0f cm - " +
                 "rischio di infezione primaria da peronospora")
                 .formatted(parcella, temperatura, pioggia, finestraPioggia.toHours(), germogli);
     }

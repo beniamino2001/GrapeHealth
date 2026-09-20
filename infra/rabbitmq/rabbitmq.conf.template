@@ -31,7 +31,7 @@ ssl_options.versions.2 = tlsv1.2
 mqtt.listeners.tcp = none
 mqtt.listeners.ssl.default = __MQTT_PORT__
 
-# TLS per la Management UI, stesso certificato già usato per AMQP/MQTT — qui la porta in
+# TLS per la Management UI, stesso certificato già usato per AMQP/MQTT. Qui la porta in
 # chiaro (15672) resta attiva insieme a quella cifrata, a differenza di AMQP/MQTT: è una
 # console di amministrazione, non un canale dati, e disattivarla del tutto renderebbe più
 # scomodo il troubleshooting durante lo sviluppo senza un beneficio di sicurezza proporzionato
@@ -41,8 +41,6 @@ management.ssl.cacertfile = /etc/rabbitmq/certs/ca.crt
 management.ssl.certfile = /etc/rabbitmq/certs/rabbitmq.crt
 management.ssl.keyfile = /etc/rabbitmq/certs/rabbitmq.key
 
-# HSTS: RabbitMQ stesso lo segnala come mancante nei log all'avvio del listener TLS della
-# Management UI ("HSTS disabled ... consider enabling strict_transport_security option").
-# Dice al browser di ricordare per un anno di usare sempre HTTPS con questo host, anche se
-# in futuro qualcuno digitasse http:// per errore.
+# La policy HSTS dice al browser di ricordare per un anno di usare sempre HTTPS 
+# con questo host, anche se in futuro qualcuno digitasse http:// per errore.
 management.hsts.policy = max-age=31536000; includeSubDomains

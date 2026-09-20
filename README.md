@@ -18,7 +18,7 @@ Su Linux, se il tuo utente non fa già parte del gruppo `docker`, lo script ce l
 
 ## Come si usa
 
-Una volta avviato, apri **`https://grapehealth.localhost`** nel browser: è la dashboard, con lo stato del vigneto simulato, le allerte attive e i grafici delle misurazioni. Non serve configurare nulla: quell'indirizzo funziona da solo su qualunque computer, senza bisogno di modificare file di sistema, e il certificato è già riconosciuto come attendibile dal browser (N.B.: Firefox fa eccezione in quanto usa un proprio archivio di certificati separato da quello di sistema, pertanto si consiglia la navigazione da un browser basato su Chromium oppure su Safari per macOS). Su WSL vale lo stesso ma un livello più in su: il browser che apri davvero è quello su Windows, e non dentro WSL, e lo script lo sa infatti importa la CA anche nello store dell'utente Windows corrente, senza bisogno di un passaggio manuale in più né di permessi da amministratore.
+Una volta avviato, apri **`https://grapehealth.localhost`** nel browser: è la dashboard, con lo stato del vigneto simulato, le allerte attive e i grafici delle misurazioni. Non serve configurare nulla: quell'indirizzo funziona da solo su qualunque computer, senza bisogno di modificare file di sistema, e il certificato è già riconosciuto come attendibile dal browser (N.B.: Firefox fa eccezione in quanto usa un proprio archivio di certificati separato da quello di sistema, pertanto si consiglia la navigazione da un browser basato su Chromium oppure su Safari per macOS).
 
 Per generare dati da vedere nella dashboard, in un altro terminale:
 ```bash
@@ -38,8 +38,8 @@ Ogni connessione fra i vari pezzi è cifrata, comprese quelle puramente interne 
 ## Requisiti in dettaglio
 
 L'unico prerequisito manuale è il repository clonato con `git clone` (non lo ZIP scaricabile da GitHub). Tutto il resto (Docker e Docker Compose, Python 3, OpenSSL, una JDK con `keytool`) `scripts/avvia-tutto.sh` lo installa da sé se manca, riconoscendo automaticamente il sistema operativo (macOS, Debian/Ubuntu e derivate come Linux Mint, Fedora, Arch Linux e derivate come Manjaro). Su una distribuzione non riconosciuta lo script si ferma con un messaggio chiaro invece di indovinare nomi di pacchetto mai verificati: in quel caso, o se preferisci comunque installare tutto a mano prima di lanciarlo, i comandi sotto sono esattamente quelli che lo script userebbe da solo.
-#### macOS — Homebrew
-Se non hai già Homebrew, installalo seguendo le istruzioni ufficiali — è l'unica cosa che lo script non installa da sé.
+#### macOS - Homebrew
+Se non hai già Homebrew, installalo seguendo le istruzioni ufficiali in quanto lo script non lo installa da sé.
 ```bash
 brew update
 brew install python openssl
@@ -52,21 +52,21 @@ sudo apt update
 sudo apt install -y python3 python3-venv python3-pip openssl ca-certificates openjdk-21-jdk docker.io docker-compose-v2
 sudo usermod -aG docker "$USER"
 ```
-Dopo l'ultimo comando serve un nuovo login (oppure una nuova finestra di terminale) perché l'appartenenza al gruppo `docker` valga — `avvia-tutto.sh` lo fa da sé senza bisogno di questo passaggio, usandolo solo se lanci i comandi Docker a mano prima di eseguirlo.
+Dopo l'ultimo comando serve un nuovo login (oppure una nuova finestra di terminale) perché l'appartenenza al gruppo `docker` valga: `avvia-tutto.sh` lo fa da sé senza bisogno di questo passaggio, usandolo solo se lanci i comandi Docker a mano prima di eseguirlo.
 #### Fedora
 ```bash
 sudo dnf install -y python3 python3-pip python3-devel openssl ca-certificates java-latest-openjdk-devel moby-engine docker-compose
 sudo systemctl enable --now docker
 sudo usermod -aG docker "$USER"
 ```
-Due dettagli non ovvi in queste righe: `java-latest-openjdk-devel`, non `java-21-openjdk` — a Fedora corrente la versione 21 non è più tra i pacchetti disponibili, ed è comunque `-devel` (non la sola variante runtime) a fornire `keytool`; il progetto costruisce le proprie immagini con Java 21 al proprio interno, quindi sull'host basta una JDK recente qualsiasi. E Docker: Fedora non ha un pacchetto chiamato `docker`, si chiama `moby-engine`.
+Due dettagli non ovvi in queste righe: `java-latest-openjdk-devel`, non `java-21-openjdk` poichè su Fedora la versione 21 non è più tra i pacchetti disponibili, ed è comunque `-devel` (non la sola variante runtime) a fornire `keytool`; il progetto costruisce le proprie immagini con Java 21 al proprio interno, quindi sull'host basta una JDK recente qualsiasi. E Docker: Fedora non ha un pacchetto chiamato `docker`, si chiama `moby-engine`.
 #### Arch Linux
 ```bash
 sudo pacman -Syu --needed python python-pip openssl ca-certificates jdk21-openjdk docker docker-compose
 sudo systemctl enable --now docker
 sudo usermod -aG docker "$USER"
 ```
-`python-virtualenv` non serve: Python 3.3+ include già il modulo `venv` usato da questo progetto (`python3 -m venv`) — è uno strumento di terze parti diverso, non necessario qui.
+`python-virtualenv` non serve: Python 3.3+ include già il modulo `venv` usato da questo progetto (`python3 -m venv`).
 ### Altri sistemi Unix/Linux
 `avvia-tutto.sh` riconosce solo le famiglie sopra (comprese le derivate, tramite `ID_LIKE`); su qualunque altro sistema Unix installa tramite il package manager disponibile i seguenti pacchetti:
 | Componente                   | Scopo                                              |

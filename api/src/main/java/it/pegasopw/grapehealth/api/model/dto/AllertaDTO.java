@@ -12,8 +12,7 @@ public record AllertaDTO(
         String nodoCodice,
         String parcella,
         String descrizione,
-        // Nome campo invariato per continuita' con la dashboard, gia' scritta contro
-        // questo contratto; internamente rispecchia allerta.regolaCodice.
+        // Nome campo invariato per continuita' con la dashboard; internamente rispecchia allerta.regolaCodice.
         String regolaScatenante,
         Instant generataIl,
         @Schema(description = "Valorizzato solo quando lo stato passa a 'risolta'; null per le allerte ancora attive.")

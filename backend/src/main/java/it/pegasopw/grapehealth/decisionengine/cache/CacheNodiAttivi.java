@@ -15,8 +15,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * disattiva un nodo rimosso da config/nodi.yaml, ma lo fa in un processo
  * separato dal ciclo di pubblicazione di main.py: un nodo appena disattivato
  * potrebbe quindi ancora pubblicare per una finestra di tempo se il
- * simulatore non è stato riavviato in sincronia — questa cache non elimina
- * quella finestra, resta un limite dichiarato, coerente con l'aggiornamento
+ * simulatore non è stato riavviato in sincronia, coerente con l'aggiornamento
  * "una tantum all'avvio" già usato da CacheGermogli/CacheTabellaGoidanich.
  */
 @Component
@@ -45,7 +44,7 @@ public class CacheNodiAttivi {
      * momento del caricamento. Un nodo sconosciuto non va trattato come
      * disattivato: potrebbe essere un nodo genuino la cui sincronizzazione
      * (init_nodi_db.py) non ha ancora avuto luogo, non un dato da scartare
-     * silenziosamente — il chiamante decide come trattare questo caso.
+     * silenziosamente: il chiamante decide come trattare questo caso.
      */
     public Boolean attivo(String codiceNodo) {
         return attivoPerCodice.get(codiceNodo);

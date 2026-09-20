@@ -127,8 +127,7 @@ class CoesistenzaRegoleTest {
     }
 
     // --- Coesistenza fra le due regole che leggono temperatura_suolo per
-    // scopi indipendenti sullo stesso nodo (v. RegolaSvernamentoOospore §4.5
-    // e RegolaDannoRadicale §4.7 del recap di fase 3). ---
+    // scopi indipendenti sullo stesso nodo. ---
 
     @Test
     void svernamentoOosporeEDannoRadicaleReagisconoIndipendentementeAlloStessoParametroSulloStessoNodo() {

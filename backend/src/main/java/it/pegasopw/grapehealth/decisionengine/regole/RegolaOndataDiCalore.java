@@ -12,12 +12,12 @@ import org.springframework.stereotype.Component;
  * regola_soglia:
  *
  * - Moderato: soglia a cui la vite attiva le proprie risposte fisiologiche
- *   allo stress da calore — calo di acidità titolabile, antociani e composti
+ *   allo stress da calore con calo di acidità titolabile, antociani e composti
  *   aromatici, aumento del rischio di sunburn.
  *
- * - Severo: soglia convenzionale, derivata da Luo et al. (2011) su
+ * - Severo: soglia convenzionale, derivata da Luo (2011) su
  *   temperatura fogliare/tessuto in laboratorio (V. amurensis, non V. vinifera)
- *   — non dalla temperatura dell'aria misurata in campo da questo sensore.
+ *   e non dalla temperatura dell'aria misurata in campo da questo sensore.
  *   Le due grandezze non coincidono e nessuna mappatura calibrata tra le due
  *   è disponibile in letteratura: lo schema stesso la dichiara "convenzionale"
  *   nel campo note. Il livello "severo" prodotto da questa regola resta
@@ -25,7 +25,7 @@ import org.springframework.stereotype.Component;
  *   convenzionale, non una certezza di danno fisiologico dimostrabile dal
  *   dato di campo con la stessa solidità del livello "moderato".
  *
- * Isteresi di 1°C condivisa da entrambe le soglie — non presente come
+ * Isteresi di 1°C condivisa da entrambe le soglie: non presente come
  * colonna in regola_soglia, resta costante Java.
  */
 @Component
@@ -45,7 +45,7 @@ public class RegolaOndataDiCalore extends RegolaSogliaConIsteresi {
     @Override
     protected String messaggio(MisurazioneMessage m, StatoRischio stato, String livello) {
         double soglia = "severo".equals(livello) ? soglie().sogliaSevero() : soglie().sogliaModerato();
-        return "Temperatura dell'aria a %.1f°C, sopra la soglia di %.0f°C (livello %s — attivazione mitigazione)"
+        return "Temperatura dell'aria a %.1f°C, sopra la soglia di %.0f°C (livello %s - attivazione mitigazione)"
                 .formatted(m.valore(), soglia, livello);
     }
 }

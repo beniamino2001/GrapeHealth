@@ -8,6 +8,12 @@ const assert = require('node:assert/strict');
 // errori senza dover caricare la libreria vera, non necessaria per testare
 // decima() e formatTipo() che non toccano Chart.js in alcun modo.
 global.Chart = { defaults: { font: {} } };
+// Stesso principio per applicaTemaChart(), chiamata anch'essa al primo
+// caricamento: nel browser document/getComputedStyle/window esistono
+// sempre, qui bastano stub minimi con la sola forma richiesta.
+global.getComputedStyle = () => ({ getPropertyValue: () => '' });
+global.document = { documentElement: {} };
+global.window = { matchMedia: () => ({ addEventListener: () => {} }) };
 
 const { decima, formatTipo } = require('./charts.js');
 

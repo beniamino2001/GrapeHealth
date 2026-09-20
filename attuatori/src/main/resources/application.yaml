@@ -16,6 +16,8 @@ spring:
           max-interval: 5s
           max-retries: 3
         default-requeue-rejected: false
+        concurrency: 3
+        max-concurrency: 5
 
 logging:
   file:

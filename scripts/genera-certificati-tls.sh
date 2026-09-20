@@ -2,25 +2,17 @@
 set -eu
 
 # Genera una CA locale autofirmata e un certificato server per ciascun servizio
-# dell'infrastruttura (postgres, rabbitmq, tomcat) — pensata per un ambiente di
-# sviluppo locale che vuole comunque parlare TLS come se fosse in produzione, non
-# per un certificato pubblicamente attendibile (nessuna CA reale firmerebbe un nome
-# come "postgres" o "rabbitmq", validi solo dentro la rete Docker di questo progetto).
-# Rilanciabile: se i certificati esistono già, non li tocca — stessa idempotenza di
-# setup-credenziali.sh, per lo stesso motivo (rigenerarli invaliderebbe le connessioni
+# dell'infrastruttura (postgres, rabbitmq, tomcat) pensata per un ambiente di
+# sviluppo locale che vuole comunque parlare TLS come se fosse in produzione.
+# Rilanciabile: se i certificati esistono già, non li tocca per la stessa idempotenza di
+# setup-credenziali.sh (rigenerarli invaliderebbe le connessioni
 # già stabilite dai client con l'impronta del certificato precedente).
-#
-# Scritto in POSIX sh puro (nessun [[ ]], nessuna sostituzione di processo <(...),
-# nessun array): questo repository lancia i propri script con "sh nomefile.sh", che
-# su macOS e Linux ignora lo shebang ed esegue con una shell POSIX rigida (dash),
-# non bash — una sintassi bash-specifica qui fallirebbe silenziosamente in un modo
-# che sembra un bug dello script, non una scelta di shell.
 #
 # I certificati foglia (postgres/rabbitmq/tomcat) includono esplicitamente
 # basicConstraints, keyUsage e extendedKeyUsage=serverAuth, e hanno validità
 # limitata a 825 giorni: sono i requisiti minimi imposti da Apple (macOS/Safari/
 # WebKit) dal 2019 per considerare un certificato TLS server "conforme agli
-# standard" — senza questi, il certificato viene importato nel keychain senza
+# standard"; senza questi, il certificato viene importato nel keychain senza
 # errori ma viene comunque rifiutato in fase di handshake su qualunque host Apple.
 #
 # La CA locale viene inoltre importata automaticamente nel trust store di sistema
@@ -42,7 +34,7 @@ importa_ca_locale() {
 
   case "$os" in
     Darwin)
-      echo "Sistema rilevato: macOS — import della CA nel System keychain (richiede sudo)..."
+      echo "Sistema rilevato: macOS - import della CA nel System keychain (richiede sudo)..."
       if ! command -v security >/dev/null 2>&1; then
         echo "ATTENZIONE: comando 'security' non trovato, import CA saltato." >&2
         return 0
@@ -63,7 +55,7 @@ importa_ca_locale() {
 
     Linux)
       if command -v update-ca-certificates >/dev/null 2>&1 && [ -d /usr/local/share/ca-certificates ]; then
-        echo "Sistema rilevato: Linux (Debian/Ubuntu) — import in /usr/local/share/ca-certificates..."
+        echo "Sistema rilevato: Linux (Debian/Ubuntu) - import in /usr/local/share/ca-certificates..."
         if sudo cp "$ca_path" /usr/local/share/ca-certificates/grapehealth-local-dev-ca.crt 2>/dev/null \
           && sudo update-ca-certificates >/dev/null 2>&1; then
           echo "CA importata nel trust store di sistema."
@@ -72,7 +64,7 @@ importa_ca_locale() {
           echo "  sudo cp $ca_path /usr/local/share/ca-certificates/grapehealth-local-dev-ca.crt && sudo update-ca-certificates" >&2
         fi
       elif command -v update-ca-trust >/dev/null 2>&1 && [ -d /etc/pki/ca-trust/source/anchors ]; then
-        echo "Sistema rilevato: Linux (RHEL/Fedora/CentOS) — import in /etc/pki/ca-trust..."
+        echo "Sistema rilevato: Linux (RHEL/Fedora/CentOS) - import in /etc/pki/ca-trust..."
         if sudo cp "$ca_path" /etc/pki/ca-trust/source/anchors/grapehealth-local-dev-ca.crt 2>/dev/null \
           && sudo update-ca-trust extract 2>/dev/null; then
           echo "CA importata nel trust store di sistema."
@@ -85,12 +77,12 @@ importa_ca_locale() {
         echo "Importa manualmente $ca_path nel trust store della tua distro." >&2
       fi
       if grep -qi microsoft /proc/version 2>/dev/null; then
-        echo "Sistema rilevato: WSL — l'import sopra vale solo per processi Linux dentro WSL." >&2
+        echo "Sistema rilevato: WSL - l'import sopra vale solo per processi Linux dentro WSL." >&2
         # Il browser che apre davvero https://grapehealth.localhost gira su Windows, non
         # dentro WSL (WSL è tipicamente senza ambiente grafico proprio): la CA deve essere
         # attendibile anche lì, non solo nel trust store della distribuzione Linux qui sopra.
         # "-user" (non lo store di macchina) importa nello store dell'utente Windows corrente
-        # senza richiedere l'elevazione UAC — a differenza dello store di macchina, che la
+        # senza richiedere l'elevazione UAC; a differenza dello store di macchina, che la
         # richiederebbe e romperebbe l'automazione con un prompt interattivo di Windows.
         ca_path_win="$(wslpath -w "$ca_path" 2>/dev/null || echo "")"
         if [ -n "$ca_path_win" ] && command -v certutil.exe >/dev/null 2>&1; then
@@ -111,7 +103,7 @@ importa_ca_locale() {
       ;;
 
     MINGW*|MSYS*|CYGWIN*)
-      echo "Sistema rilevato: Windows (Git Bash/MSYS/Cygwin) — import con certutil..."
+      echo "Sistema rilevato: Windows (Git Bash/MSYS/Cygwin) - import con certutil..."
       if command -v certutil.exe >/dev/null 2>&1; then
         ca_path_win="$(cygpath -w "$ca_path" 2>/dev/null || echo "$ca_path")"
         if certutil.exe -addstore -f "ROOT" "$ca_path_win" >/dev/null 2>&1; then
@@ -126,13 +118,13 @@ importa_ca_locale() {
       ;;
 
     *)
-      echo "ATTENZIONE: sistema operativo '$os' non riconosciuto — import automatico CA saltato." >&2
+      echo "ATTENZIONE: sistema operativo '$os' non riconosciuto - import automatico CA saltato." >&2
       echo "Importa manualmente $ca_path come CA attendibile nel tuo sistema/browser." >&2
       ;;
   esac
 
   echo "NOTA: Firefox usa un proprio archivio certificati (NSS), indipendente da" >&2
-  echo "quello di sistema — se l'applicazione dà ancora errore certificato solo su" >&2
+  echo "quello di sistema - se l'applicazione dà ancora errore certificato solo su" >&2
   echo "Firefox, importa $ca_path manualmente in about:preferences#privacy -> Certificati." >&2
 }
 
@@ -149,7 +141,7 @@ if [ -z "$TLS_KEYSTORE_PASSWORD" ]; then
 fi
 
 if [ -f "$CERTS_DIR/ca.crt" ]; then
-  echo "Certificati già presenti in $CERTS_DIR — nessuna rigenerazione."
+  echo "Certificati già presenti in $CERTS_DIR - nessuna rigenerazione."
   echo "Per rigenerarli da zero: rm -rf $CERTS_DIR, poi rilancia questo script."
   echo "Verifico comunque che la CA sia importata nel trust store locale..."
   importa_ca_locale

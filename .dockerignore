@@ -1,9 +1,3 @@
-# A differenza di .gitignore, un pattern qui senza "**/" davanti esclude SOLO alla radice
-# del contesto di build, mai a una profondità qualunque — verificato empiricamente con un
-# demone Docker reale, non per lettura della documentazione. Le voci sotto sono divise di
-# conseguenza: quelle con "**/" sono pensate per colpire ovunque nell'albero, quelle senza
-# sono deliberatamente specifiche a un unico percorso alla radice.
-
 .git/
 **/.env
 **/.env [0-9]*

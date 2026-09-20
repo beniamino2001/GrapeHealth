@@ -58,10 +58,10 @@ test('estraiContenuto su null o undefined restituisce un array vuoto', () => {
 
 // --- formattaDurata -----------------------------------------------------------
 
-test('formattaDurata restituisce "—" per input negativo o non finito', () => {
-  assert.equal(formattaDurata(-1), '—');
-  assert.equal(formattaDurata(NaN), '—');
-  assert.equal(formattaDurata(Infinity), '—');
+test('formattaDurata restituisce "-" per input negativo o non finito', () => {
+  assert.equal(formattaDurata(-1), '-');
+  assert.equal(formattaDurata(NaN), '-');
+  assert.equal(formattaDurata(Infinity), '-');
 });
 
 test('formattaDurata su 0ms restituisce "0s"', () => {

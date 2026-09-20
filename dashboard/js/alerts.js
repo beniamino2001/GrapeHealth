@@ -188,6 +188,11 @@ function testoRisoluzionePrevista(risoluzionePianificataIl) {
 }
 
 async function mostraRaccomandazione(allerta) {
+  // Il paragrafo guida iniziale ("Seleziona un'allerta...") vive fuori da
+  // #recommendationPanel: senza nasconderlo qui resterebbe visibile sopra
+  // il dettaglio anche a selezione avvenuta, invece di sparire non appena
+  // l'utente ne sceglie una - il suo compito finisce alla prima selezione.
+  document.getElementById('hintRaccomandazione').hidden = true;
   const panel = document.getElementById('recommendationPanel');
   panel.innerHTML = '<p class="empty-state">Caricamento…</p>';
   try {
@@ -218,8 +223,8 @@ function renderRaccomandazione(r, allerta) {
 
   const dettaglioAllerta = allerta ? `
     <p class="dettaglio-allerta">
-      <strong>Regola scatenante:</strong> ${allerta.regolaScatenante || '—'}<br>
-      <strong>Descrizione dell'evento:</strong> ${escapeHtml(allerta.descrizione) || '—'}
+      <strong>Regola scatenante:</strong> ${allerta.regolaScatenante || '-'}<br>
+      <strong>Descrizione dell'evento:</strong> ${escapeHtml(allerta.descrizione) || '-'}
     </p>
     ${allerta.stato === 'risolta' && allerta.risoltaIl ? `
       <p><strong>Risolta il:</strong> ${new Date(allerta.risoltaIl).toLocaleString('it-IT')}
@@ -244,6 +249,7 @@ function renderRaccomandazione(r, allerta) {
   const sezioneSoglie = soglie.length > 0 ? `
     <div class="soglie-regola">
       <h4>Soglie bibliografiche della regola</h4>
+      <div class="tabella-scroll">
       <table class="tabella-soglie">
         <thead>
           <tr><th>Parametro</th><th>Livello</th><th>Condizione</th><th>Durata min.</th><th>Note</th></tr>
@@ -252,14 +258,15 @@ function renderRaccomandazione(r, allerta) {
           ${soglie.map(s => `
             <tr>
               <td>${s.parametro}</td>
-              <td>${s.livelloRischio || '—'}</td>
+              <td>${s.livelloRischio || '-'}</td>
               <td>${formattaOperatore(s.operatore)} ${s.valoreSoglia.toLocaleString('it-IT')} ${s.unitaMisura || ''}</td>
-              <td>${s.durataMinimaMinuti ? `${s.durataMinimaMinuti} min` : '—'}</td>
-              <td>${escapeHtml(s.note) || '—'}</td>
+              <td>${s.durataMinimaMinuti ? `${s.durataMinimaMinuti} min` : '-'}</td>
+              <td>${escapeHtml(s.note) || '-'}</td>
             </tr>
           `).join('')}
         </tbody>
       </table>
+      </div>
     </div>
   ` : '';
 
@@ -283,9 +290,7 @@ function renderRaccomandazione(r, allerta) {
   })();
 
   // L'ordine con cui /api/raccomandazioni restituisce azioniAlternative non e' garantito da un
-  // ORDER BY esplicito lato api (verificato: CacheAzioniMitigazione.azioniPerRegola() restituisce
-  // l'ordine di lettura di regola_azione, non un ordine dichiarato) - oggi coincide con l'ordine
-  // di inserimento del seed, ma non e' un contratto su cui questo file possa fare affidamento.
+  // ORDER BY esplicito lato api ma con l'ordine di inserimento del seed.
   // Il testo sotto dichiara che l'azione consigliata compare sempre per prima: per essere vero a
   // prescindere da come arrivano i dati, l'ordine e' imposto qui, non presunto dalla risposta.
   const alternative = (r.azioniAlternative || []).slice().sort((a, b) => {
@@ -309,18 +314,18 @@ function renderRaccomandazione(r, allerta) {
   ` : '';
 
   panel.innerHTML = `
-    <h3>Allerta #${r.allertaId ?? '—'} — ${formatTipo(r.tipoAllerta)} <span class="livello-inline">${r.livelloRischio || ''}</span></h3>
+    <h3>Allerta #${r.allertaId ?? '-'} - ${formatTipo(r.tipoAllerta)} <span class="livello-inline">${r.livelloRischio || ''}</span></h3>
     ${badge}
     ${dettaglioAllerta}
     ${fonteRegola}
     ${sezioneSoglie}
     ${infoGermoglio}
-    <p><strong>Azione consigliata:</strong> ${escapeHtml(r.azioneConsigliata) || '—'}</p>
+    <p><strong>Azione consigliata:</strong> ${escapeHtml(r.azioneConsigliata) || '-'}</p>
     <p>${escapeHtml(r.testoRaccomandazione)}</p>
     ${r.basedOnSimulatedExecution ? `
-      <p><strong>Azione eseguita (simulata):</strong> ${escapeHtml(r.azioneEseguita) || '—'}</p>
-      <p><strong>Esito:</strong> ${escapeHtml(r.esitoSimulato) || '—'}</p>
-      <p><strong>Eseguita il:</strong> ${r.eseguitaIl ? new Date(r.eseguitaIl).toLocaleString('it-IT') : '—'}</p>
+      <p><strong>Azione eseguita (simulata):</strong> ${escapeHtml(r.azioneEseguita) || '-'}</p>
+      <p><strong>Esito:</strong> ${escapeHtml(r.esitoSimulato) || '-'}</p>
+      <p><strong>Eseguita il:</strong> ${r.eseguitaIl ? new Date(r.eseguitaIl).toLocaleString('it-IT') : '-'}</p>
     ` : ''}
     ${sezioneAlternative}
   `;

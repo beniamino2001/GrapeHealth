@@ -54,10 +54,10 @@ public class StoricoMisurazioniService {
                 .and(MisurazioneSpecifications.rilevatoIlPrima(al));
 
         // Una finestra temporale delimitata (dal e al entrambi presenti) è per definizione una
-        // richiesta di "tutti i dati di questo intervallo", non una sfoglia pagina per pagina: una
-        // singola pagina a dimensione fissa puo' troncare silenziosamente l'intervallo quando le
-        // righe candidate superano il tetto di paginazione, restituendo solo le piu' recenti senza
-        // segnalarlo. Per questo caso si interroga senza Pageable, ordinando cronologicamente: la
+        // richiesta di "tutti i dati di questo intervallo": una singola pagina a dimensione fissa
+        // puo' troncare silenziosamente l'intervallo quando le righe candidate superano il tetto 
+        // di paginazione, restituendo solo le piu' recenti senza segnalarlo. 
+        // Per questo caso si interroga senza Pageable, ordinando cronologicamente: la
         // finestra è completa per costruzione, non solo nella pratica.
         if (dal != null && al != null) {
             long conteggio = misurazioneRepository.count(filtro);

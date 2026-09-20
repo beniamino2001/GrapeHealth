@@ -7,16 +7,14 @@ FILE_ESCLUSIONI="${ISTANZE_ESCLUSE_FILE:-/opt/grapehealth/istanze-escluse.conf}"
 declare -A PORTA_HTTPS=(    [decisionengine]=8081 [attuatori]=8082 [persistence]=8083 [api]=8084 [dashboard]=8085 )
 declare -A PORTA_SHUTDOWN=( [decisionengine]=8005 [attuatori]=8006 [persistence]=8007 [api]=8008 [dashboard]=8009 )
 declare -A MODULO_SORGENTE=( [decisionengine]=backend [attuatori]=attuatori [persistence]=persistence [api]=api )
-# dashboard non ha una voce in MODULO_SORGENTE: e' servita come file statici, non un modulo Maven.
 
 PID_LIST=()
 NOMI_AVVIATI=()
 SENTINEL_CONTAINER="/opt/grapehealth/.container_gia_avviato"
 
-# "Container ricreato da zero" (SENTINEL_CONTAINER assente: vive nel filesystem scrivibile
-# del container, quindi sparisce a ogni "docker compose down" indipendentemente da "-v",
-# a differenza di GRAPEHEALTH_INSTANCES che e' un bind mount e sopravvive a "-v" da solo) e'
-# lo stesso segnale che pilota sia la pulizia dei log sia -- da qui in poi -- la ricompilazione
+# "Container ricreato da zero" (SENTINEL_CONTAINER assente poichè sparisce a ogni "docker compose down" 
+# indipendentemente da "-v", a differenza di GRAPEHEALTH_INSTANCES che e' un bind mount e sopravvive a "-v" da solo) e'
+# lo stesso segnale che pilota sia la pulizia dei log sia la ricompilazione
 # dei quattro moduli Spring Boot: un riavvio qualunque non ricompila nulla, un container
 # davvero nuovo ricompila sempre, anche se GRAPEHEALTH_INSTANCES contiene gia' le istanze
 # di un avvio precedente.
@@ -29,12 +27,10 @@ if [[ ! -f "$SENTINEL_CONTAINER" ]]; then
   for istanza in decisionengine attuatori persistence api; do
     modulo="${MODULO_SORGENTE[$istanza]}"
     echo "  - $modulo: mvn package..."
-    # timeout, non solo "mvn": una build che si blocca per un problema di rete durante
-    # la risoluzione delle dipendenze (scenario reale ora che compila a ogni container
-    # pulito, non più una tantum in fase di build immagine) lascerebbe altrimenti lo
-    # script fermo qui a tempo indeterminato, senza che "docker compose up" mostri mai
-    # un errore chiaro — solo un avvio che non finisce mai. 600s è ampio anche per un primo
-    # download completo delle dipendenze (osservato ~40s in condizioni normali).
+    # una build che si blocca per un problema di rete durante la risoluzione delle dipendenze 
+    # (scenario reale ora che compila a ogni container pulito, non più una tantum in fase di build immagine) 
+    # lascerebbe lo script fermo a tempo indeterminato, senza che "docker compose up" mostri mai
+    # un errore chiaro. 600s è ampio anche per un primo download completo delle dipendenze (~40s in condizioni normali).
     ( cd "/opt/grapehealth/src/${modulo}" && timeout 600 mvn -q -DskipTests package )
     cp "/opt/grapehealth/src/${modulo}/target/"*.war "/opt/grapehealth/dist/${istanza}.war"
   done

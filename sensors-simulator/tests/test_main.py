@@ -173,7 +173,7 @@ class TestAvvisoTimeScale:
 
 class TestValoreEffettivo:
     """Sostituisce `da_cli or da_config`: quell'or fallirebbe silenziosamente
-    su --time-scale 0, dato che 0 è falsy in Python — esattamente il valore
+    su --time-scale 0, dato che 0 è falsy in Python; esattamente il valore
     che dovrebbe invece essere rifiutato esplicitamente da valida_config(),
     non silenziosamente sostituito dal default di config."""
 
@@ -193,7 +193,7 @@ class TestValoreEffettivo:
 class TestAvvisoIntervalloSovrascritto:
     """Sotto il pavimento di 0,1s su sleep_reale, l'intervallo simulato
     realmente attraversato fra due tick diventa 0,1*time_scale, non più
-    quello dichiarato in config — una condizione che resta vera per poche
+    quello dichiarato in config; una condizione che resta vera per poche
     ore simulate genera così molte più occasioni di riallerta di quante
     l'intervallo configurato lascerebbe pensare."""
 

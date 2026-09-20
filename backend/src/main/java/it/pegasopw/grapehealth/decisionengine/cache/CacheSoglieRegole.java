@@ -17,13 +17,13 @@ import java.util.concurrent.ConcurrentHashMap;
  * regola_codice, caricata una sola volta all'avvio. Ogni classe Regola*
  * riceve questa cache nel proprio costruttore e ne estrae, sempre
  * all'avvio, esattamente i valori di cui ha bisogno per i propri campi
- * finali — non la interroga a ogni misurazione: la lettura da database
+ * finali non interrogandola a ogni misurazione: la lettura da database
  * resta un costo di avvio, non di percorso critico, sullo stesso principio
  * già seguito da CacheGermogli e CacheTabellaGoidanich.
  *
  * Le isteresi (0,05 MPa su stress_idrico, 1°C sulle altre) non hanno una
- * colonna dedicata in regola_soglia — restano annotate solo nel campo
- * "note" in formato libero, non parsabile in modo affidabile — quindi
+ * colonna dedicata in regola_soglia ma restano annotate solo nel campo
+ * "note" in formato libero, non parsabile in modo affidabile: dunque
  * restano costanti Java in ciascuna regola, non lette da qui.
  */
 @Component
@@ -54,7 +54,7 @@ public class CacheSoglieRegole {
 
     /**
      * Tutte le soglie della regola per parametro e livello indicati, quando
-     * più righe condividono la stessa combinazione — es. le quattro coppie
+     * più righe condividono la stessa combinazione, es. le quattro coppie
      * soglia/durata di sunburn, distinte solo da durata_minima_minuti.
      * A differenza di sogliaUnica(), qui più di una riga è attesa, non un
      * errore.
@@ -69,7 +69,7 @@ public class CacheSoglieRegole {
      * L'unica soglia della regola per parametro e livello indicati. Lancia
      * IllegalStateException se manca o se è ambigua (più righe corrispondenti,
      * es. una banda con due righe sullo stesso livello distinte solo
-     * dall'operatore — in quel caso usare la variante a quattro argomenti).
+     * dall'operatore e in quel caso bisogna usare la variante a quattro argomenti).
      * Un fallimento a runtime, non un valore silenziosamente sbagliato: se
      * schema e codice divergono, meglio saperlo all'avvio.
      */

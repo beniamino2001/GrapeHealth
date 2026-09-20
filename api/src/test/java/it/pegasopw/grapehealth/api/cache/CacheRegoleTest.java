@@ -33,14 +33,14 @@ class CacheRegoleTest {
     void trovaPerCodiceRestituisceLaRegolaCaricata() {
         RegolaRepository regolaRepository = mock(RegolaRepository.class);
         RegolaSogliaRepository sogliaRepository = mock(RegolaSogliaRepository.class);
-        when(regolaRepository.findAll()).thenReturn(List.of(regola("sunburn", "Müller et al. 2023")));
+        when(regolaRepository.findAll()).thenReturn(List.of(regola("sunburn", "Müller 2023")));
         when(sogliaRepository.findAll()).thenReturn(List.of());
         when(sogliaRepository.count()).thenReturn(0L);
 
         CacheRegole cache = new CacheRegole(regolaRepository, sogliaRepository);
         cache.carica();
 
-        assertEquals("Müller et al. 2023", cache.trovaPerCodice("sunburn").getFonteBibliografica());
+        assertEquals("Müller 2023", cache.trovaPerCodice("sunburn").getFonteBibliografica());
     }
 
     @Test

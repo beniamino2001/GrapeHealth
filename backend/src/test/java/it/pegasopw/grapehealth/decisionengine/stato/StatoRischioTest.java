@@ -118,7 +118,7 @@ class StatoRischioTest {
 
         // Qui il salto non deve far crollare né duplicare la somma: i due giorni
         // realmente osservati contano una volta ciascuno (8+6=14), i tre giorni
-        // saltati in mezzo semplicemente non contribuiscono - non c'è modo di
+        // saltati in mezzo semplicemente non contribuiscono e non c'è modo di
         // recuperare un dato mai arrivato, ma non deve nemmeno essere inventato.
         double somma = stato.sommaFinestra("pioggia", giorno5, Duration.ofDays(10));
         assertEquals(14.0, somma, 0.001);

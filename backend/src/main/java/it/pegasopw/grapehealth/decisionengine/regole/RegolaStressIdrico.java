@@ -13,8 +13,8 @@ import java.util.Optional;
 /**
  * Stress idrico da potenziale idrico dello stelo a mezzogiorno (psi_stem).
  * Soglie lette a runtime da regola_soglia (moderato/severo su psi_stem):
- * verificate contro Acevedo-Opazo et al. (2010) al momento della semina
- * dello schema, non nel codice. Isteresi di 0,05 MPa — non presente come
+ * verificate contro Acevedo-Opazo (2010) al momento della semina
+ * dello schema, non nel codice. Isteresi di 0,05 MPa non presente come
  * colonna in regola_soglia, resta costante Java. Il verso PEGGIORA_SCENDENDO
  * riflette che psi_stem è negativo e il rischio cresce quando il valore
  * scende (diventa più negativo), non quando sale.
@@ -22,7 +22,7 @@ import java.util.Optional;
  * L'umidità del suolo (parametro "umidita_suolo", pubblicato dal nodo suolo
  * della stessa parcella) è un indicatore complementare, non sostitutivo, di
  * psi_stem: viene tracciata per parcella e riportata nel messaggio quando
- * psi_stem fa scattare un'allerta, come conferma incrociata — non genera mai
+ * psi_stem fa scattare un'allerta, come conferma incrociata, e non genera mai
  * un'allerta autonomamente, né influenza la soglia o il livello determinati
  * da psi_stem.
  */

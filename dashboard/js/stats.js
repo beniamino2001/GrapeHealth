@@ -15,7 +15,7 @@ async function aggiornaStatistiche(allerteAttive) {
   // Solo per il grafico "Azioni raccomandate (allerte attive)": lo scope e' gia'
   // dichiarato nel titolo, quindi resta corretto restringerlo alle sole attive.
   // Il KPI "Raccomandazioni con azione eseguita" e' calcolato altrove su un campione piu' ampio,
-  // proprio per evitare che vada a 0%/— non appena non ci sono piu' allerte attive (caso normale a fine
+  // proprio per evitare che vada a 0%/- non appena non ci sono piu' allerte attive (caso normale a fine
   // scenario, non un'anomalia) mentre lo storico recente mostra azioni eseguite.
   try {
     const raccomandazioni = await GrapeHealthAPI.getRaccomandazioni({});
@@ -47,7 +47,7 @@ function aggiornaKpiParcelleESeverita(allerteAttive) {
 function aggiornaKpiMisurazioni(ultimaRicevutaIl) {
   document.getElementById('kpiUltimaRicevuta').textContent = ultimaRicevutaIl
     ? new Date(ultimaRicevutaIl).toLocaleTimeString('it-IT')
-    : '—';
+    : '-';
 }
 
 const NUMERO_ALLERTE_PER_TEMPO_RISPOSTA = 20;
@@ -65,7 +65,7 @@ async function aggiornaTempoRisposta() {
 
     // Campione per il tasso di esecuzione: le attive gia' in memoria (aggiornate
     // dal polling di alerts.js) piu' le ultime risolte appena recuperate. Cosi'
-    // il KPI non crolla a 0%/— appena non ci sono piu' allerte attive (fine
+    // il KPI non crolla a 0%/- appena non ci sono piu' allerte attive (fine
     // scenario), pur restando limitato a un campione recente per lo stesso
     // motivo di contenimento chiamate gia' applicato al tempo di risposta.
     // Deduplicato con un Set: i due elenchi sono aggiornati da cicli di polling
@@ -80,9 +80,9 @@ async function aggiornaTempoRisposta() {
     ])];
 
     if (idsCampione.length === 0) {
-      kpiTempo.textContent = '—';
-      kpiTasso.textContent = '—';
-      document.getElementById('kpiUltimaAzioneEseguita').textContent = '—';
+      kpiTempo.textContent = '-';
+      kpiTasso.textContent = '-';
+      document.getElementById('kpiUltimaAzioneEseguita').textContent = '-';
       return;
     }
 
@@ -101,7 +101,7 @@ async function aggiornaTempoRisposta() {
     // e 57% su 30 non comunicano la stessa affidabilita' del dato a chi legge la card.
     kpiTasso.textContent = raccomandazioni.length > 0
       ? `${percentuale}% (${eseguite.length}/${raccomandazioni.length})`
-      : '—';
+      : '-';
 
     // Parallelo di kpiUltimaRicevuta (main.js) ma sul lato attuazione invece che
     // sensori: quando il sistema ha eseguito l'ultima azione simulata, non solo
@@ -113,7 +113,7 @@ async function aggiornaTempoRisposta() {
     }, 0);
     document.getElementById('kpiUltimaAzioneEseguita').textContent = ultimaEseguitaIl
       ? new Date(ultimaEseguitaIl).toLocaleTimeString('it-IT')
-      : '—';
+      : '-';
 
     const durate = risolte
       .map(allerta => {
@@ -125,12 +125,12 @@ async function aggiornaTempoRisposta() {
 
     kpiTempo.textContent = durate.length > 0
       ? formattaDurata(durate.reduce((somma, ms) => somma + ms, 0) / durate.length)
-      : '—';
+      : '-';
   } catch (err) {
     console.error('Errore nel calcolo delle metriche di esecuzione/risposta', err);
-    kpiTempo.textContent = '—';
-    kpiTasso.textContent = '—';
-    document.getElementById('kpiUltimaAzioneEseguita').textContent = '—';
+    kpiTempo.textContent = '-';
+    kpiTasso.textContent = '-';
+    document.getElementById('kpiUltimaAzioneEseguita').textContent = '-';
   }
 }
 
@@ -142,7 +142,7 @@ function avviaAggiornamentoTempoRisposta() {
 // Le allerte attive raccontano cosa sta succedendo ora (v. aggiornaKpiParcelleESeverita
 // sopra); queste ultime risolte raccontano cosa si e' ripresentato di recente, un'informazione
 // complementare che nessun altro pannello mostra: quale tipo di rischio ricorre piu' spesso,
-// quale parcella ne e' piu' coinvolta, e quale singolo nodo sensore in particolare - un livello
+// quale parcella ne e' piu' coinvolta, e quale singolo nodo sensore in particolare; un livello
 // di dettaglio piu' fine della sola parcella, utile quando piu' nodi di tipo diverso sulla
 // stessa parcella (es. bacca-B1 per il sunburn, idrico-B1 per lo stress idrico) generano allerte
 // di tipo diverso e non e' immediato da un conteggio per sola parcella capire quale dei due sia
@@ -158,9 +158,9 @@ function aggiornaKpiRicorrenza(risolte) {
   const tipoPiuFrequente = vociPiuFrequenti(risolte, 'tipo');
   const parcellaPiuFrequente = vociPiuFrequenti(risolte, 'parcella');
   const nodoPiuFrequente = vociPiuFrequenti(risolte, 'nodoCodice');
-  kpiTipo.textContent = tipoPiuFrequente ? formatTipo(tipoPiuFrequente) : '—';
-  kpiParcella.textContent = parcellaPiuFrequente || '—';
-  kpiNodo.textContent = nodoPiuFrequente || '—';
+  kpiTipo.textContent = tipoPiuFrequente ? formatTipo(tipoPiuFrequente) : '-';
+  kpiParcella.textContent = parcellaPiuFrequente || '-';
+  kpiNodo.textContent = nodoPiuFrequente || '-';
 }
 
 // Conta le occorrenze del valore del campo indicato in ciascun elemento e restituisce il valore

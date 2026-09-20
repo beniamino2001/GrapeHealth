@@ -81,13 +81,13 @@ class RaccomandazioniServiceTest {
 
         RegolaEntity regola = new RegolaEntity();
         ReflectionTestUtils.setField(regola, "descrizione", "Descrizione di prova");
-        ReflectionTestUtils.setField(regola, "fonteBibliografica", "Acevedo-Opazo et al. 2010");
+        ReflectionTestUtils.setField(regola, "fonteBibliografica", "Acevedo-Opazo 2010");
         when(cacheRegole.trovaPerCodice("stress_idrico")).thenReturn(regola);
 
         RaccomandazioneDTO dto = service.perAllerta(7L);
 
         assertEquals("Descrizione di prova", dto.descrizioneRegola());
-        assertEquals("Acevedo-Opazo et al. 2010", dto.fonteBibliograficaRegola());
+        assertEquals("Acevedo-Opazo 2010", dto.fonteBibliograficaRegola());
         assertFalse(dto.basedOnSimulatedExecution());
     }
 

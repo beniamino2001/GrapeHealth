@@ -16,9 +16,6 @@ import java.util.concurrent.ConcurrentHashMap;
  * all'avvio. Il dato è un valore fenologico rilevato manualmente a sopralluogo
  * periodico, non da un sensore, quindi non cambia a ogni messaggio e non
  * giustifica una query per ogni misurazione elaborata da RegolaTreDieci.
- *
- * Sostituisce la Map<String, Double> hardcoded nella prima versione di
- * RegolaTreDieci, dopo che il dato è stato spostato in parcella.lunghezza_germoglio_cm.
  */
 @Component
 public class CacheGermogli {
@@ -44,7 +41,7 @@ public class CacheGermogli {
 
     /**
      * Restituisce la lunghezza nota del germoglio per la parcella, o 0.0 se la
-     * parcella non è nota o non ha ancora un valore registrato — stesso
+     * parcella non è nota o non ha ancora un valore registrato che è lo stesso
      * comportamento della precedente Map.getOrDefault: la condizione della
      * regola dei tre dieci non scatta mai per una parcella senza dato
      * fenologico, invece di sollevare un errore.

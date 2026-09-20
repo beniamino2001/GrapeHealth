@@ -8,6 +8,7 @@ import it.pegasopw.grapehealth.decisionengine.cache.CacheNodiAttivi;
 import jakarta.validation.Validation;
 import jakarta.validation.Validator;
 import org.junit.jupiter.api.Test;
+import org.springframework.amqp.AmqpRejectAndDontRequeueException;
 import org.springframework.amqp.core.Message;
 import org.springframework.amqp.core.MessageProperties;
 import tools.jackson.databind.json.JsonMapper;
@@ -119,7 +120,7 @@ class MisurazioneListenerTest {
 
         Message messaggioMalformato = messaggio("grapehealth.meteo.parcellaA.meteo-A1", "{questo non è JSON valido");
 
-        assertThrows(RuntimeException.class, () -> listener.onMessage(messaggioMalformato));
+        assertThrows(AmqpRejectAndDontRequeueException.class, () -> listener.onMessage(messaggioMalformato));
     }
 
     @Test
@@ -134,7 +135,7 @@ class MisurazioneListenerTest {
         verifyNoInteractions(regola, publisher);
     }
 
-    // --- Filtro CacheNodiAttivi (v. §1.7 del recap di fase 3): la distinzione
+    // --- Filtro CacheNodiAttivi: la distinzione
     // a tre stati (attivo/disattivato/sconosciuto) non era mai stata
     // esercitata da un test unitario, solo verificata a mano sul log reale. ---
 
@@ -174,7 +175,7 @@ class MisurazioneListenerTest {
         verify(regola).valuta(any(), any());
     }
 
-    // --- Validazione (v. §1 punto (a) dell'audit): MisurazioneMessage ora
+    // --- Validazione: MisurazioneMessage ora
     // dichiara @NotBlank/@NotNull sui campi obbligatori; il listener deve
     // rifiutare esplicitamente un messaggio sintatticamente valido come JSON
     // ma con un campo obbligatorio mancante, invece di lasciarlo scivolare
@@ -191,7 +192,7 @@ class MisurazioneListenerTest {
                 {"parcella":"parcellaA","parametro":"temperatura_aria","valore":36.0,\
                 "unita_misura":"C","timestamp_rilevazione":"2026-04-15T10:00:00Z"}""";
 
-        assertThrows(RuntimeException.class, () -> listener.onMessage(
+        assertThrows(AmqpRejectAndDontRequeueException.class, () -> listener.onMessage(
                 messaggio("grapehealth.meteo.parcellaA.meteo-A1", corpoConNodoMancante)));
     }
 
@@ -203,7 +204,7 @@ class MisurazioneListenerTest {
                 mock(AllertaPublisher.class), new StatoRischio(),
                 cacheNodiAttiviCheAccettaTutto(), validator);
 
-        assertThrows(RuntimeException.class, () -> listener.onMessage(
+        assertThrows(AmqpRejectAndDontRequeueException.class, () -> listener.onMessage(
                 messaggio("grapehealth.meteo.parcellaA.meteo-A1",
                         jsonMisurazione("meteo-A1.evil#", "parcellaA", "temperatura_aria", 36.0))));
     }

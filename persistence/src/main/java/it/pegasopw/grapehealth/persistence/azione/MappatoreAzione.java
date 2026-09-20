@@ -23,7 +23,7 @@ public class MappatoreAzione {
     // condizioni), quindi non esiste un tipo_azione valido da scrivere.
     // Optional.empty() dice al chiamante di non creare affatto un
     // trattamento per queste allerte, che restano comunque persistite e
-    // risolte come tutte le altre - solo senza un'azione di mitigazione
+    // risolte come tutte le altre solo senza un'azione di mitigazione
     // collegata.
     public Optional<String> tipoAzione(AllertaEvent evento) {
         return switch (evento.tipo()) {
@@ -39,9 +39,7 @@ public class MappatoreAzione {
     // Locale.ROOT esplicito: String.formatted() senza argomento usa il locale
     // di default della JVM, che su una macchina con locale italiano
     // renderebbe il separatore decimale una virgola ("45,70") invece del
-    // punto atteso altrove nel progetto (es. nel log JSON strutturato di
-    // attuatori, dove lo stesso valore e' serializzato come numero nativo,
-    // non come stringa formattata). Locale.ROOT garantisce un output
+    // punto atteso altrove nel progetto. Locale.ROOT garantisce un output
     // deterministico, indipendente dalla macchina che esegue il processo.
     public String note(AllertaEvent evento) {
         return String.format(Locale.ROOT,

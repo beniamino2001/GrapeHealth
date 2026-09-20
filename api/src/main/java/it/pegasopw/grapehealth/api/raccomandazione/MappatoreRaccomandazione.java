@@ -23,7 +23,7 @@ public class MappatoreRaccomandazione {
     // Optional, non String: svernamento_oospore e infezione_secondaria non hanno alcuna azione
     // catalogata in regola_azione (nessuna fonte bibliografica indica un trattamento per queste
     // due condizioni), quindi non esiste un codice azione valido da restituire. Optional.empty()
-    // dice al chiamante che la raccomandazione resta solo informativa - stesso criterio gia'
+    // dice al chiamante che la raccomandazione resta solo informativa; stesso criterio gia'
     // usato da MappatoreAzione in persistence per lo stesso motivo.
     public Optional<String> azioneConsigliata(AllertaEntity allerta) {
         return switch (allerta.getTipo()) {

@@ -19,8 +19,19 @@ from simulator.mqtt_client import CA_CERT_PATH, GrapeHealthMqttClient, MAX_TENTA
 
 
 class RisultatoPublishFinto:
-    def __init__(self, rc):
+    def __init__(self, rc, confermata=True):
         self.rc = rc
+        # Di default confermata=True: ogni test esistente che non parla
+        # esplicitamente di conferma del broker continua a comportarsi come
+        # se wait_for_publish()/is_published() avessero sempre successo,
+        # esattamente il comportamento di prima di questo controllo.
+        self._confermata = confermata
+
+    def wait_for_publish(self, timeout=None):
+        pass  # nel finto non c'è nulla da attendere davvero
+
+    def is_published(self):
+        return self._confermata
 
 
 @pytest.fixture
@@ -40,7 +51,7 @@ def credenziali_rabbitmq_di_test(monkeypatch):
     """Imposta credenziali di test per ogni test di questo file, così un
     ambiente reale senza RABBITMQ_USER/RABBITMQ_PASS impostate (o con
     valori diversi da questi) non fa fallire i test che non riguardano
-    esplicitamente le credenziali stesse — stesso principio già applicato
+    esplicitamente le credenziali stesse; stesso principio già applicato
     all'isolamento da .env in test_init_nodi_db.py. TestCredenzialiMancanti
     disattiva questa fixture con monkeypatch.delenv() dove serve testare
     proprio l'assenza."""
@@ -74,7 +85,7 @@ class TestCostruzione:
     def test_tls_abilitato_con_la_ca_locale(self, client_paho_finto):
         """Il listener MQTT in chiaro di RabbitMQ è disattivato (mqtt.listeners.tcp
         = none): senza tls_set(), connect() fallirebbe sempre, non solo in modo
-        insicuro — verificare la sua presenza non è opzionale quanto le altre."""
+        insicuro."""
         GrapeHealthMqttClient(client_id="sensori-simulati")
 
         client_paho_finto.tls_set.assert_called_once_with(ca_certs=str(CA_CERT_PATH))
@@ -185,6 +196,53 @@ class TestPublish:
 
         assert client_paho_finto.publish.call_count == 1
         assert not any(r.levelname in ("WARNING", "ERROR") for r in caplog.records)
+
+    def test_publish_accodata_ma_non_confermata_dal_broker_viene_ritentata(
+        self, client_paho_finto, monkeypatch, caplog,
+    ):
+        """rc == MQTT_ERR_SUCCESS da solo non basta con QoS>0: qui
+        l'accodamento riesce sempre (rc=0), ma il broker non conferma mai
+        (is_published() resta False)."""
+        monkeypatch.setattr(mqtt_client_module.time, "sleep", lambda s: None)
+        client_paho_finto.publish.return_value = RisultatoPublishFinto(rc=0, confermata=False)
+        client = GrapeHealthMqttClient(client_id="sensori-simulati")
+
+        client.publish("grapehealth/parcellaA/meteo-A1/temperatura_aria", '{"valore": 28.5}', qos=1)
+
+        assert client_paho_finto.publish.call_count == MAX_TENTATIVI_PUBLISH, (
+            "Un accodamento mai confermato dal broker deve esaurire i tentativi "
+            "come un fallimento vero, non fermarsi al primo rc di successo."
+        )
+        assert any(r.levelname == "ERROR" and "persa" in r.message for r in caplog.records)
+
+    def test_publish_confermata_al_secondo_tentativo_non_perde_la_lettura(
+        self, client_paho_finto, monkeypatch, caplog,
+    ):
+        monkeypatch.setattr(mqtt_client_module.time, "sleep", lambda s: None)
+        client_paho_finto.publish.side_effect = [
+            RisultatoPublishFinto(rc=0, confermata=False),
+            RisultatoPublishFinto(rc=0, confermata=True),
+        ]
+        client = GrapeHealthMqttClient(client_id="sensori-simulati")
+
+        client.publish("grapehealth/parcellaA/meteo-A1/temperatura_aria", '{"valore": 28.5}', qos=1)
+
+        assert client_paho_finto.publish.call_count == 2
+        assert not any(r.levelname == "ERROR" for r in caplog.records)
+
+    def test_publish_con_qos_zero_non_attende_conferma(self, client_paho_finto):
+        """A QoS 0 non esiste un PUBACK da attendere: wait_for_publish()/
+        is_published() non vanno chiamate affatto, solo rc conta."""
+        result = RisultatoPublishFinto(rc=0, confermata=False)
+        client_paho_finto.publish.return_value = result
+        client = GrapeHealthMqttClient(client_id="sensori-simulati")
+
+        client.publish("grapehealth/parcellaA/meteo-A1/temperatura_aria", '{"valore": 28.5}', qos=0)
+
+        assert client_paho_finto.publish.call_count == 1, (
+            "Con qos=0 e rc di successo non ci deve essere alcun ritentativo, "
+            "anche se is_published() risulterebbe False: a QoS 0 non c'è nulla da confermare."
+        )
 
     def test_publish_riesce_dopo_un_fallimento_transitorio_senza_perdere_la_lettura(
         self, client_paho_finto, monkeypatch, caplog,

@@ -26,10 +26,9 @@ def dotenv_isolato(monkeypatch):
     un .env reale presente sul filesystem (quello di sviluppo, con
     credenziali vere) rileggerebbe silenziosamente una variabile che un
     test ha appena rimosso con monkeypatch.delenv(), perché load_dotenv()
-    per difetto non sovrascrive una variabile già assente dall'ambiente —
-    la ripristina. Le variabili d'ambiente che contano per questi test le
-    impostano le fixture/i test stessi, non un file .env che può cambiare
-    da una macchina all'altra."""
+    per difetto non sovrascrive una variabile già assente dall'ambiente.
+    Le variabili d'ambiente che contano per questi test le
+    impostano le fixture/i test stessi."""
     monkeypatch.setattr(init_nodi_db, "load_dotenv", lambda *a, **k: None)
 
 
@@ -106,7 +105,7 @@ class TestTlsObbligatorio:
     """pg_hba.conf accetta solo connessioni hostssl: senza sslmode esplicito
     a verify-full, la connessione cifrerebbe comunque (default 'prefer' di
     psycopg2) ma senza verificare il certificato del server contro la CA
-    locale — una password intercettabile via man-in-the-middle non sarebbe
+    locale; una password intercettabile via man-in-the-middle non sarebbe
     diversa, in pratica, da nessuna cifratura affatto."""
 
     def test_sslmode_verify_full_con_la_ca_locale(self, connessione_finta, cursore_finto):
@@ -185,7 +184,7 @@ class TestGuardiaConfigVuota:
         self, monkeypatch, connessione_finta, cursore_finto, capsys
     ):
         """A differenza di {'parcelle': []}, qui la chiave manca del tutto:
-        config.get('parcelle') restituisce None, non una lista — 'or []' deve
+        config.get('parcelle') restituisce None, non una lista; 'or []' deve
         normalizzare entrambi i casi allo stesso comportamento, non sollevare
         un KeyError non gestito su config['parcelle']."""
         monkeypatch.setattr("yaml.safe_load", MagicMock(return_value={}))
@@ -238,7 +237,7 @@ class TestCampoMancanteInUnaParcellaONodo:
         self, monkeypatch, connessione_finta, cursore_finto, capsys
     ):
         """Il secondo nodo/parcella malformato non deve impedire il rollback
-        di quanto già eseguito nella stessa transazione — verificato
+        di quanto già eseguito nella stessa transazione; verificato
         controllando che main() propaghi l'uscita invece di proseguire, dato
         che il rollback vero e proprio è responsabilità di 'with conn', già
         coperta da TestConnessioneFallita per il caso simmetrico."""

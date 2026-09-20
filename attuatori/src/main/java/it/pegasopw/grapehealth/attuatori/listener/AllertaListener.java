@@ -24,7 +24,7 @@ public class AllertaListener {
 
         // parametro/valoreOsservato/messaggio, non solo tipo e livello: senza
         // questi campi il log risponderebbe solo a "che cosa e' scattato", non
-        // a "perche'" - quale grandezza, quale valore misurato.
+        // a "perche'", ovvero quale grandezza, quale valore misurato.
         log.atInfo()
                 .addKeyValue("tipo", evento.tipo())
                 .addKeyValue("livelloRischio", evento.livelloRischio())

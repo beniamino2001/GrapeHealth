@@ -7,7 +7,7 @@ import java.time.Duration;
 
 // Ritardi PRIMA della scalatura: rappresentano la durata realistica con cui,
 // nella realta' agricola, ci si aspetterebbe di vedere risolto il rischio
-// segnalato da un'allerta dopo l'esecuzione del trattamento corrispondente -
+// segnalato da un'allerta dopo l'esecuzione del trattamento corrispondente
 // o, per i tipi senza un'azione catalogata (v. MappatoreAzione), quanto a
 // lungo ha senso che l'allerta resti visibile come "attiva" prima di
 // considerarla superata.
@@ -60,7 +60,7 @@ public class RitardoRisoluzione {
     //   appena rilevata (trigger di Baldacci): c'è tipicamente più margine
     //   prima di dover intervenire. "Severo" segnala che l'incubazione
     //   secondo Goidanich ha raggiunto il 70%, cioè che la finestra di
-    //   trattamento si sta chiudendo — più urgente, non meno, quindi un
+    //   trattamento si sta chiudendo; più urgente, non meno, quindi un
     //   ritardo di risoluzione più BREVE. Le due durate restano comunque una
     //   stima di ordine di grandezza, non legata a una fonte bibliografica
     //   specifica per l'una o l'altra, come già il valore singolo precedente.

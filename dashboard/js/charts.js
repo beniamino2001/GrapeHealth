@@ -4,9 +4,23 @@
 // raccomandate). Ogni funzione render* distrugge l'istanza precedente dello
 // stesso canvas prima di crearne una nuova, per evitare sovrapposizioni.
 
+// Chart.js disegna su canvas e non legge le variabili CSS del resto della
+// pagina: i colori di default (testo degli assi, linee della griglia) vanno
+// impostati qui esplicitamente. Letti dalle stesse variabili del tema in
+// style.css, invece di duplicarne i valori, cosi' restano sincronizzati con
+// la modalita' chiara/scura del sistema operativo senza doverli mantenere in
+// due posti. Alla creazione di ogni grafico si legge lo stato corrente; se
+// il sistema operativo cambia tema a pagina gia' aperta, il prossimo grafico
+// creato (il prossimo giro di polling, entro 30s al massimo) riflette il
+// nuovo tema.
+function applicaTemaChart() {
+  const stile = getComputedStyle(document.documentElement);
+  Chart.defaults.color = stile.getPropertyValue('--testo-secondario').trim();
+  Chart.defaults.borderColor = stile.getPropertyValue('--bordo').trim();
+}
 Chart.defaults.font.family = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
-Chart.defaults.color = '#4a4a44';
-Chart.defaults.borderColor = '#e8e5d8';
+applicaTemaChart();
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applicaTemaChart);
 
 // Colore identificativo per ciascuna parcella nei grafici multi-serie. Una
 // parcella non censita qui (v. COLORI_TIPO sotto per lo stesso principio

@@ -56,7 +56,7 @@ public class AllertaPersistenceListener {
         }
 
         // A time-scale molto alte lo stesso nodo può ripubblicare la stessa
-        // condizione di rischio a pochi secondi reali di distanza - a volte
+        // condizione di rischio a pochi secondi reali di distanza: a volte
         // allo stesso livello (il margine di isteresi del decision engine
         // non sempre basta a filtrare il sottocampionamento del segnale
         // simulato), a volte con un cambio di livello quasi immediato
@@ -84,11 +84,10 @@ public class AllertaPersistenceListener {
 
             // Livello diverso: il rischio per questo nodo è cambiato. Si
             // chiude subito quella al livello precedente invece di lasciarla
-            // scadere per conto suo - altrimenti resterebbero visibili come
+            // scadere per conto suo, altrimenti resterebbero visibili come
             // "attive" in contemporanea due allerte a livelli diversi per lo
-            // stesso nodo/tipo, che è esattamente il sintomo osservato sulla
-            // dashboard. Si prosegue poi sotto per aprire la nuova allerta al
-            // nuovo livello, con il proprio trattamento se previsto.
+            // stesso nodo/tipo. Si prosegue poi sotto per aprire la nuova
+            // allerta al nuovo livello, con il proprio trattamento se previsto.
             schedulerRisoluzioneAllerte.risolviOra(esistente);
             log.info("Livello di rischio cambiato da {} a {} per tipo={}, nodoId={}: allerta precedente chiusa (id={})",
                     esistente.getLivelloRischio(), evento.livelloRischio(), evento.tipo(), nodoId, esistente.getId());

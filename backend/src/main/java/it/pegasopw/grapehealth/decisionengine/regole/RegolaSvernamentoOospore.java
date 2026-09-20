@@ -11,23 +11,23 @@ import java.util.Optional;
 /**
  * Svernamento delle oospore di Plasmopara viticola nel terreno: la
  * germinazione avviene in una banda di temperatura del suolo, non oltre una
- * singola soglia direzionale — sotto il confine minimo il patogeno resta
+ * singola soglia direzionale infatti sotto il confine minimo il patogeno resta
  * quiescente, sopra il confine massimo la germinazione è inibita (Si Ammour
- * et al., 2020). Entrambi i confini letti a runtime da regola_soglia (stesso
+ *, 2020). Entrambi i confini letti a runtime da regola_soglia (stesso
  * livello "moderato", distinti dall'operatore: ">=" per il minimo, "<=" per
  * il massimo). Fenomeno distinto dal trigger di Baldacci di RegolaTreDieci:
  * descrive lo svernamento invernale del patogeno, non l'infezione primaria
  * di inizio stagione. Un solo livello di rischio, nessuna soglia "severo"
  * riportata dalla fonte.
  *
- * Isteresi di 1°C su entrambi i confini della banda — non presente come
+ * Isteresi di 1°C su entrambi i confini della banda: non presente come
  * colonna in regola_soglia, resta costante Java. Aggiunta dopo che una
  * ricalibrazione del simulatore (per rendere raggiungibile la soglia di
  * RegolaDannoRadicale) ha tenuto per diverse ore al giorno il valore a
  * ridosso del confine superiore di questa banda, producendo oscillazioni
- * osservabili nel numero di allerte reali — corrette a monte con un picco
+ * osservabili nel numero di allerte reali (corrette a monte con un picco
  * più stretto, ma l'isteresi qui resta una protezione indipendente da quella
- * calibrazione.
+ * calibrazione).
  */
 @Component
 public class RegolaSvernamentoOospore implements RegolaRischio {

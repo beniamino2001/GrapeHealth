@@ -21,7 +21,7 @@ class MisurazioniDeadLetterTest {
     // A differenza della coda allerte, questo container non passa dalla
     // retry policy di Spring Boot (RabbitConfig, nota su misurazioniListenerContainer):
     // un JSON malformato va in dead-letter al primo tentativo, non dopo
-    // il backoff — timeout più corto sufficiente, mantenuto uguale per
+    // il backoff; timeout più corto sufficiente, mantenuto uguale per
     // uniformità con l'altro test di dead-letter del modulo.
     @Test
     void jsonMalformatoSuMisurazioniFinisceNellaCodaDiDeadLetter() {

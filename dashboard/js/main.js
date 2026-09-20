@@ -132,7 +132,7 @@ async function caricaGraficoMisurazioni() {
 
 // Anagrafica dei nodi sensore (/api/nodi, nuovo endpoint): un nodo rimosso
 // dalla configurazione viene marcato attivo=false invece di essere cancellato,
-// per non perdere la storia delle misurazioni gia' raccolte - un conteggio
+// per non perdere la storia delle misurazioni gia' raccolte; un conteggio
 // "operativi su totali" segnala quindi se l'intera rete sensori e' schierata
 // o se qualche nodo e' stato messo fuori servizio, un'informazione di stato
 // dell'infrastruttura distinta da qualunque cosa riguardi le allerte. Recuperata
@@ -146,17 +146,17 @@ async function aggiornaKpiNodiOperativi() {
   try {
     const nodi = await GrapeHealthAPI.getNodi();
     const operativi = nodi.filter(n => n.attivo).length;
-    kpiNodi.textContent = nodi.length > 0 ? `${operativi}/${nodi.length}` : '—';
+    kpiNodi.textContent = nodi.length > 0 ? `${operativi}/${nodi.length}` : '-';
     renderTabellaNodi(corpoTabella, nodi);
   } catch (err) {
     console.error('Impossibile caricare l\'anagrafica nodi da /api/nodi', err);
-    kpiNodi.textContent = '—';
+    kpiNodi.textContent = '-';
     corpoTabella.innerHTML = '<tr><td colspan="5">Impossibile caricare l\'elenco dei nodi.</td></tr>';
   }
 }
 
 // Ordinata per parcella e poi per codice, cosi' che i nodi della stessa parcella
-// compaiano vicini - piu' utile a un operatore che scorre la tabella per zona
+// compaiano vicini: piu' utile a un operatore che scorre la tabella per zona
 // che l'ordine grezzo restituito dall'API.
 function renderTabellaNodi(corpoTabella, nodi) {
   if (nodi.length === 0) {
@@ -185,7 +185,7 @@ function renderTabellaNodi(corpoTabella, nodi) {
 // giorno prima). Riformattata direttamente sulla stringa, senza passare da
 // un oggetto Date.
 function formattaData(iso) {
-  if (!iso) return '—';
+  if (!iso) return '-';
   const [anno, mese, giorno] = iso.split('-');
   return `${giorno}/${mese}/${anno}`;
 }

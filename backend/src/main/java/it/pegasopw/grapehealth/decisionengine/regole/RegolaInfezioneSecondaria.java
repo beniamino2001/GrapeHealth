@@ -12,16 +12,16 @@ import java.util.Optional;
 
 /**
  * Rischio di infezione secondaria di peronospora per bagnatura fogliare
- * prolungata a temperatura favorevole (Brischetto et al., 2021): condizione
+ * prolungata a temperatura favorevole (Brischetto, 2021): condizione
  * di rischio quando bagnatura_fogliare resta almeno alla soglia per almeno
  * la durata minima continuativa, con temperatura_aria contemporaneamente
- * compresa nella banda — tutti e tre i valori letti a runtime da
- * regola_soglia. Fenomeno distinto dal trigger di Baldacci di
+ * compresa nella banda (tutti e tre i valori letti a runtime da
+ * regola_soglia). Fenomeno distinto dal trigger di Baldacci di
  * RegolaTreDieci: qui l'infezione riguarda spore già presenti sulla
  * vegetazione, non la prima infezione primaria della stagione.
  *
  * La soglia su bagnatura_fogliare è una convenzione di questo progetto, non
- * un valore di Brischetto et al.: il modello originale definisce "ora umida"
+ * un valore di Brischetto: il modello originale definisce "ora umida"
  * come umidità relativa ≥80% oppure pioggia >0mm oppure bagnatura fogliare
  * >30min (un OR fra tre segnali), qui semplificato al solo segnale di
  * bagnatura fogliare. L'isteresi di 5 punti percentuali attorno a quella

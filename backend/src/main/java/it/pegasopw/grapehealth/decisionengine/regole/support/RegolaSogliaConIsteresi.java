@@ -14,7 +14,7 @@ import java.util.Optional;
  * confronto col livello precedente, deduplica delle ripubblicazioni,
  * costruzione dell'evento. Le sottoclassi forniscono solo il tipo di regola,
  * il parametro osservato, le soglie numeriche (tramite SogliaConIsteresi) e
- * il testo del messaggio — non reimplementano la logica di transizione.
+ * il testo del messaggio.
  */
 public abstract class RegolaSogliaConIsteresi implements RegolaRischio {
 

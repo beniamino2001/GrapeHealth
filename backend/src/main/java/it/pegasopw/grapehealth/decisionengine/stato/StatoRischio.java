@@ -75,11 +75,6 @@ public class StatoRischio {
      * giorno vengono scartate perché ridondanti (stesso totale di giornata, non un
      * incremento). Così sommaFinestra() somma il totale di ciascun giorno realmente
      * rientrante nella finestra, non lo stesso totale ripetuto centinaia di volte.
-     *
-     * Assunzione dichiarata: il valore resta costante per l'intera giornata simulata.
-     * Se in futuro un sensore reale o un simulatore aggiornasse il totale progressivamente 
-     * nel corso della stessa giornata, andrebbe sostituito il campione del giorno 
-     * con l'ultimo valore noto invece di scartare le letture successive.
      */
     public void registraLetturaGiornalieraPioggia(String chiave, Instant timestamp, double valore) {
         LocalDate giorno = timestamp.atZone(ZoneOffset.UTC).toLocalDate();
@@ -152,7 +147,8 @@ public class StatoRischio {
         if (giorniSaltati > 0) {
             // Stesso fenomeno documentato in registraLetturaGiornalieraPioggia: a
             // time_scale molto elevati un tick può superare le 24 ore simulate. Il
-            // giorno saltato non contribuisce mai all'incubazione di Goidanich -
+            // giorno saltato non contribuisce mai all'incubazione di Goidanich perché 
+            // non ci sono letture di temperatura/umidità in quei giorni, quindi fa una
             // sottostima silenziosa, non un falso allarme, ma non recuperabile qui
             // senza un'assunzione su temperatura/umidità non osservate in quei giorni.
             log.warn("Rilevato salto di {} giorno/i simulato/i senza letture per {}: da {} a {}, " +

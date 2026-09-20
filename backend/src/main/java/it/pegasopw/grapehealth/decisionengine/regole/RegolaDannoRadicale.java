@@ -10,19 +10,19 @@ import java.util.Optional;
 
 /**
  * Danno alla sopravvivenza radicale da temperatura del suolo eccessiva
- * (Field et al., 2020, citando Huang et al., 2005): sopra la soglia letta a
+ * (Field, 2020, citando Huang, 2005): sopra la soglia letta a
  * runtime da regola_soglia, la temperatura della zona radicale può
  * compromettere la sopravvivenza delle radici. Fenomeno fisiologico,
  * distinto dall'uso fitosanitario dello stesso parametro in
  * RegolaSvernamentoOospore.
  *
- * Un solo livello di rischio, "severo" fin dal primo superamento — a
+ * Un solo livello di rischio, "severo" fin dal primo superamento: a
  * differenza delle altre regole a soglia singola di questo modulo
  * (RegolaOndataDiCalore usa "moderato"), perché la fonte descrive
  * direttamente un danno alla sopravvivenza, non un primo segnale di
  * allarme: non esiste un livello intermedio da rappresentare.
  *
- * Isteresi di 1°C — non presente come colonna in regola_soglia, resta
+ * Isteresi di 1°C non presente come colonna in regola_soglia, resta
  * costante Java: la soglia è vicina al tetto realistico di temperatura del
  * suolo in ondata di calore, un margine stretto con un rischio concreto di
  * oscillazione dovuta al rumore di misura, sullo stesso principio già
